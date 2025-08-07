@@ -1,3 +1,4 @@
+import 'package:course_application/screens/profile_setup_screen.dart';
 import 'package:course_application/services/auth_service.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -56,14 +57,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() {
       _isLoading = false;
     });
-
     if (result == 'Success') {
       if (mounted) {
-        // AuthWrapper will handle navigation to HomeScreen
-        // We just pop the register screen
+        // PEHLE: HomeScreen pe ja rahe the
+        // AB: ProfileSetupScreen pe jayenge
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
+          MaterialPageRoute(builder: (context) => const ProfileSetupScreen()), // <-- BADLAV YAHAN HAI
               (Route<dynamic> route) => false,
         );
       }

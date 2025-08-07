@@ -1,13 +1,71 @@
-import 'package:course_application/screens/welcome_screen.dart';
+// lib/screens/account_screen.dart
+
+import 'package:course_application/services/auth_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:iconly/iconly.dart';
 
-class AccountScreen extends StatelessWidget {
+// Screens jahan navigate karna hai
+import 'edit_profile_screen.dart';
+import 'settings_screen.dart';
+import 'subscription_screen.dart';
+import 'package:course_application/admin/add_notes_screen.dart'; // Admin screen ko import kiya
+
+class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
 
   @override
+  State<AccountScreen> createState() => _AccountScreenState();
+}
+
+class _AccountScreenState extends State<AccountScreen> {
+  final AuthService _authService = AuthService();
+  User? _currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentUser = FirebaseAuth.instance.currentUser;
+  }
+
+  void _logout() async {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Confirm Logout"),
+          content: const Text("Are you sure you want to log out?"),
+          actions: <Widget>[
+            TextButton(
+              child: const Text("Cancel"),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text("Logout", style: TextStyle(color: Colors.red)),
+              onPressed: () async {
+                await _authService.signOut();
+                if (mounted) {
+                  Navigator.of(context).pop();
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_currentUser == null) {
+      return const Scaffold(
+        body: Center(child: Text("User not logged in!")),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -30,74 +88,69 @@ class AccountScreen extends StatelessWidget {
             children: [
               _buildProfileAvatar(),
               const SizedBox(height: 20),
-              _buildProfileName('Vinod'), // Tumhara naam!
+              Text(
+                _currentUser?.displayName ?? 'User',
+                style: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 10),
               Text(
-                'vinod.dev@email.com', // Dummy email
+                _currentUser?.email ?? 'No email available',
                 style: GoogleFonts.poppins(color: Colors.grey[600]),
               ),
               const SizedBox(height: 30),
               const Divider(),
               const SizedBox(height: 10),
-              // Menu Items
               ProfileMenuTile(
                 title: "Edit Profile",
                 icon: IconlyLight.edit,
                 onTap: () {
-                  print("Edit Profile Tapped!");
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const EditProfileScreen()));
                 },
               ),
               ProfileMenuTile(
                 title: "Settings",
                 icon: IconlyLight.setting,
                 onTap: () {
-                  print("Settings Tapped!");
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen()));
                 },
               ),
               ProfileMenuTile(
                 title: "My Subscription",
                 icon: IconlyLight.wallet,
                 onTap: () {
-                  print("Subscription Tapped!");
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const SubscriptionScreen()));
                 },
               ),
+
+              // --- YAHAN ADMIN PANEL KA LOGIC ADD KIYA GAYA HAI ---
+              FutureBuilder<bool>(
+                future: _authService.isAdmin(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const SizedBox.shrink();
+                  }
+                  if (snapshot.hasData && snapshot.data == true) {
+                    return ProfileMenuTile(
+                      title: "Admin Panel: Add Notes",
+                      icon: Icons.admin_panel_settings,
+                      textColor: Colors.green[700],
+                      onTap: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => const AddNotesScreen()));
+                      },
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
+              // --- ADMIN PANEL LOGIC ENDS HERE ---
+
               const Divider(),
               const SizedBox(height: 10),
               ProfileMenuTile(
                 title: "Logout",
                 icon: IconlyLight.logout,
                 textColor: Colors.red,
-                onTap: () {
-                  // Best Practice: User se logout confirm karwana
-                  showDialog(
-                    context: context,
-                    builder: (BuildContext context) {
-                      return AlertDialog(
-                        title: const Text("Confirm Logout"),
-                        content: const Text("Are you sure you want to log out?"),
-                        actions: <Widget>[
-                          TextButton(
-                            child: const Text("Cancel"),
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                            },
-                          ),
-                          TextButton(
-                            child: const Text("Logout"),
-                            onPressed: () {
-                              Navigator.pushAndRemoveUntil(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) => const WelcomeScreen()),
-                                    (Route<dynamic> route) => false,
-                              );
-                            },
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                },
+                onTap: _logout,
               ),
             ],
           ),
@@ -107,11 +160,15 @@ class AccountScreen extends StatelessWidget {
   }
 
   Widget _buildProfileAvatar() {
+    final photoUrl = _currentUser?.photoURL;
+
     return Stack(
       children: [
-        const CircleAvatar(
+        CircleAvatar(
           radius: 70,
-          backgroundImage: AssetImage('assets/suzume.jpg'), // Ensure this path is correct in pubspec.yaml
+          backgroundImage: photoUrl != null
+              ? NetworkImage(photoUrl)
+              : const AssetImage('assets/suzume.jpg') as ImageProvider,
         ),
         Positioned(
           bottom: 0,
@@ -135,19 +192,9 @@ class AccountScreen extends StatelessWidget {
       ],
     );
   }
-
-  Widget _buildProfileName(String name) {
-    return Text(
-      name,
-      style: GoogleFonts.poppins(
-        fontSize: 24,
-        fontWeight: FontWeight.bold,
-      ),
-    );
-  }
 }
 
-// Reusable Menu Tile Widget (BEST PRACTICE!)
+// Reusable Menu Tile Widget
 class ProfileMenuTile extends StatelessWidget {
   const ProfileMenuTile({
     super.key,
@@ -171,9 +218,9 @@ class ProfileMenuTile extends StatelessWidget {
         height: 45,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(15),
-          color: Colors.deepPurple.withOpacity(0.1),
+          color: (textColor ?? Colors.deepPurple).withOpacity(0.1),
         ),
-        child: Icon(icon, color: Colors.deepPurple),
+        child: Icon(icon, color: textColor ?? Colors.deepPurple),
       ),
       title: Text(
         title,
