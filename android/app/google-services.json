@@ -1,20 +1,20 @@
 {
   "project_info": {
-    "project_number": "227776801675",
-    "project_id": "course-application-1",
-    "storage_bucket": "course-application-1.firebasestorage.app"
+    "project_number": "249380649381",
+    "project_id": "course-application-official",
+    "storage_bucket": "course-application-official.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:227776801675:android:6ea6d5862f13d32d7d9d8e",
+        "mobilesdk_app_id": "1:249380649381:android:8f711ad6c719acbaa7904c",
         "android_client_info": {
           "package_name": "com.example.course_application"
         }
       },
       "oauth_client": [
         {
-          "client_id": "227776801675-0l94bra38dqfdcn018b2fptctbnkrnbs.apps.googleusercontent.com",
+          "client_id": "249380649381-3qpllq64v8jbhnasau7ibljad727jgbj.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.example.course_application",
@@ -22,24 +22,24 @@
           }
         },
         {
-          "client_id": "227776801675-ltvl5cb2nbl2skueb39h385bllodmb3m.apps.googleusercontent.com",
+          "client_id": "249380649381-hjuv8vv4e2sjbk8g0bptg7nqkgf36p1u.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyDiQkjwY-IBWGxkLVD-mUTSloe6RFCvBpM"
+          "current_key": "AIzaSyB5vqjhdcVMpdm4D-6Rl4oo_5yg_LrMPcw"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "227776801675-ltvl5cb2nbl2skueb39h385bllodmb3m.apps.googleusercontent.com",
+              "client_id": "249380649381-hjuv8vv4e2sjbk8g0bptg7nqkgf36p1u.apps.googleusercontent.com",
               "client_type": 3
             },
             {
-              "client_id": "227776801675-clp43bo1aounadicv2q11mtvtt5v4avp.apps.googleusercontent.com",
+              "client_id": "249380649381-t0hculo8efp7ifm812ar7idh7gvjdhm0.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
                 "bundle_id": "com.example.courseApplication"
