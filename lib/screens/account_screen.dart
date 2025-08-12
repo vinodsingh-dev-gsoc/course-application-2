@@ -1,5 +1,3 @@
-// lib/screens/account_screen.dart
-
 import 'package:course_application/services/auth_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -10,7 +8,8 @@ import 'package:iconly/iconly.dart';
 import 'edit_profile_screen.dart';
 import 'settings_screen.dart';
 import 'subscription_screen.dart';
-import 'package:course_application/admin/add_notes_screen.dart'; // Admin screen ko import kiya
+import 'package:course_application/admin/add_notes_screen.dart';
+import 'welcome_screen.dart'; // FIX: WelcomeScreen ko import kiya
 
 class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
@@ -32,7 +31,7 @@ class _AccountScreenState extends State<AccountScreen> {
   void _logout() async {
     showDialog(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: const Text("Confirm Logout"),
           content: const Text("Are you sure you want to log out?"),
@@ -40,15 +39,25 @@ class _AccountScreenState extends State<AccountScreen> {
             TextButton(
               child: const Text("Cancel"),
               onPressed: () {
-                Navigator.of(context).pop();
+                Navigator.of(dialogContext).pop();
               },
             ),
             TextButton(
               child: const Text("Logout", style: TextStyle(color: Colors.red)),
               onPressed: () async {
+                // Pehle dialog ko band karo
+                Navigator.of(dialogContext).pop();
+
+                // Fir sign out karo
                 await _authService.signOut();
+
+                // Finally, WelcomeScreen par jao aur saari purani screens हटा do
                 if (mounted) {
-                  Navigator.of(context).pop();
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (context) => const WelcomeScreen()),
+                        (Route<dynamic> route) => false,
+                  );
                 }
               },
             ),
@@ -61,9 +70,9 @@ class _AccountScreenState extends State<AccountScreen> {
   @override
   Widget build(BuildContext context) {
     if (_currentUser == null) {
-      return const Scaffold(
-        body: Center(child: Text("User not logged in!")),
-      );
+      // Agar user null hai, toh turant WelcomeScreen dikha do.
+      // Yeh ek fallback hai, waise to auth stream isko handle karega.
+      return const WelcomeScreen();
     }
 
     return Scaffold(
@@ -122,7 +131,6 @@ class _AccountScreenState extends State<AccountScreen> {
                 },
               ),
 
-              // --- YAHAN ADMIN PANEL KA LOGIC ADD KIYA GAYA HAI ---
               FutureBuilder<bool>(
                 future: _authService.isAdmin(),
                 builder: (context, snapshot) {
@@ -142,7 +150,6 @@ class _AccountScreenState extends State<AccountScreen> {
                   return const SizedBox.shrink();
                 },
               ),
-              // --- ADMIN PANEL LOGIC ENDS HERE ---
 
               const Divider(),
               const SizedBox(height: 10),
@@ -166,9 +173,12 @@ class _AccountScreenState extends State<AccountScreen> {
       children: [
         CircleAvatar(
           radius: 70,
-          backgroundImage: photoUrl != null
+          backgroundImage: photoUrl != null && photoUrl.isNotEmpty
               ? NetworkImage(photoUrl)
               : const AssetImage('assets/suzume.jpg') as ImageProvider,
+          onBackgroundImageError: (_, __) {
+            // Agar network image load nahi hoti hai toh fallback
+          },
         ),
         Positioned(
           bottom: 0,

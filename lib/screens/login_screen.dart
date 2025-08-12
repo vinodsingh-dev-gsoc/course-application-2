@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:course_application/screens/register_screen.dart';
 import 'package:course_application/auth/forgot_pass.dart';
-import 'package:course_application/services/auth_service.dart'; // Humne ek service banayi hai!
+import 'package:course_application/services/auth_service.dart';
 import 'home/home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -43,20 +43,29 @@ class _LoginScreenState extends State<LoginScreen> {
       password: _passwordController.text.trim(),
     );
 
-    setState(() {
-      _isLoading = false;
-    });
+    // Yahan state ko check karne se pehle hi false kar do,
+    // taaki agar widget tree se screen hat bhi jaaye toh error na aaye.
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
 
-    if (result == 'Success') {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
-            (Route<dynamic> route) => false,
-      );
+    // FIX: Success ka matlab hai result 'null' hoga.
+    if (result == null) {
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+              (Route<dynamic> route) => false,
+        );
+      }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result ?? 'An unknown error occurred')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result)),
+        );
+      }
     }
   }
 
@@ -67,20 +76,27 @@ class _LoginScreenState extends State<LoginScreen> {
 
     String? result = await _authService.signInWithGoogle();
 
-    setState(() {
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
 
-    if (result == 'Success') {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
-            (Route<dynamic> route) => false,
-      );
-    } else if (result != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result)),
-      );
+    // FIX: Success ka matlab hai result 'null' hoga.
+    if (result == null) {
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+              (Route<dynamic> route) => false,
+        );
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result)),
+        );
+      }
     }
   }
 
@@ -182,13 +198,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     IconButton(
-                      icon: Image.asset('assets/google_logo.png', height: 40), // Make sure to add this asset
+                      icon: Image.asset('assets/google_logo.png', height: 40),
                       onPressed: _signInWithGoogle,
                       iconSize: 50,
                     ),
                     const SizedBox(width: 20),
                     IconButton(
-                      icon: Image.asset('assets/facebook_logo.png', height: 40), // Make sure to add this asset
+                      icon: Image.asset('assets/facebook_logo.png', height: 40),
                       onPressed: () {
                         // Facebook login logic
                       },
@@ -196,7 +212,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(width: 20),
                     IconButton(
-                      icon: Image.asset('assets/apple_logo.png', height: 40, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black), // Make sure to add this asset
+                      icon: Image.asset('assets/apple_logo.png', height: 40, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
                       onPressed: () {
                         // Apple login logic
                       },

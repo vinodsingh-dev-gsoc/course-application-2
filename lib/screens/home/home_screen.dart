@@ -1,7 +1,9 @@
+import 'package:course_application/screens/account_screen.dart';
+import 'package:course_application/screens/selection_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../account_screen.dart';
-import '../selection_screen.dart';
-// Ab HomeScreen ek StatefulWidget hai!
+import 'package:google_fonts/google_fonts.dart';
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -10,18 +12,15 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 0; // State variable jo yaad rakhega ki kaunsa tab active hai
+  int _selectedIndex = 0;
 
-  // Is list mein hum saari screens daalenge
-  // _HomeScreenContent() hamara purana UI hai
   static final List<Widget> _screens = <Widget>[
-    const _HomeScreenContent(), // Index 0: Home
-    const Center(child: Text('Saved Screen')), // Index 1: Saved
-    const Center(child: Text('Courses Screen')), // Index 2: Courses
-    const AccountScreen(), // Index 3: Account
+    const _HomeScreenContent(),
+    const Center(child: Text('Saved Screen')),
+    const Center(child: Text('Courses Screen')),
+    const AccountScreen(),
   ];
 
-  // Yeh function tab call hoga jab user kisi tab par tap karega
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -31,9 +30,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Body ab dynamically change hogi _selectedIndex ke hisaab se
       body: _screens.elementAt(_selectedIndex),
-      // BottomNavigationBar ab interactive hai
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
@@ -69,9 +66,31 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// BEST PRACTICE: Humne Home Screen ke UI ko ek alag private widget mein daal diya
-class _HomeScreenContent extends StatelessWidget {
+class _HomeScreenContent extends StatefulWidget {
   const _HomeScreenContent();
+
+  @override
+  State<_HomeScreenContent> createState() => __HomeScreenContentState();
+}
+
+class __HomeScreenContentState extends State<_HomeScreenContent> {
+  User? _currentUser;
+  String _displayName = 'User';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  void _loadUserData() {
+    _currentUser = FirebaseAuth.instance.currentUser;
+    if (_currentUser != null) {
+      setState(() {
+        _displayName = _currentUser!.displayName ?? 'User';
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -97,21 +116,33 @@ class _HomeScreenContent extends StatelessWidget {
     );
   }
 
-  // Neeche ke saare helper functions ab is widget ka hissa hain
   Widget _buildHeader() {
-    return const Row(
+    return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Hello', style: TextStyle(fontSize: 18, color: Colors.grey)),
-            ],
+            Text(
+              'Hello, $_displayName! 👋',
+              style: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              "Let's start learning",
+              style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey[600]),
+            ),
+          ],
         ),
         CircleAvatar(
-          radius: 25,
-          backgroundColor: Color(0xFFE0E0E0),
-          child: Icon(Icons.person, size: 30, color: Colors.deepPurple),
+          radius: 28,
+          backgroundImage: _currentUser?.photoURL != null
+              ? NetworkImage(_currentUser!.photoURL!)
+              : null,
+          backgroundColor: const Color(0xFFE0E0E0),
+          child: _currentUser?.photoURL == null
+              ? const Icon(Icons.person, size: 30, color: Colors.deepPurple)
+              : null,
         ),
       ],
     );

@@ -1,7 +1,6 @@
 import 'package:course_application/screens/register_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
 import 'login_screen.dart';
 // Login aur Register screen hum aage banayenge
 // import 'package:course_application/screens/login_screen.dart';
@@ -21,9 +20,11 @@ class WelcomeScreen extends StatelessWidget {
             Expanded(
               flex: 2,
               child: Container(
-                // Placeholder for the 'Welcome' image
                 alignment: Alignment.center,
-                child: Text(" [ Welcome Image Here ] ", style: TextStyle(fontSize: 20, color: Colors.grey)),
+                child: Image.asset(
+                  'assets/Welcome_Image.png', // <-- .png extension use karein
+                  height: 250,
+                ),
               ),
             ),
             // Lower part with details and buttons

@@ -48,7 +48,27 @@ class DatabaseService {
       });
     }
   }
+  Future<List<QueryDocumentSnapshot>> getNotes({
+    required String classId,
+    required String subjectId,
+    required String chapterName,
+    required String patternId,
+  }) async {
+    try {
+      final querySnapshot = await _db
+          .collection('notes')
+          .where('classId', isEqualTo: classId)
+          .where('subjectId', isEqualTo: subjectId)
+          .where('chapterName', isEqualTo: chapterName)
+          .where('patternId', isEqualTo: patternId)
+          .get();
 
+      return querySnapshot.docs;
+    } catch (e) {
+      print('Error getting notes: $e');
+      return []; // Error ke case mein empty list return karo
+    }
+  }
   // Naya function: Check karne ke liye ki user ne class khareedi hai ya nahi
   Future<bool> hasAccessToClass(String classId) async {
     if (uid != null) {

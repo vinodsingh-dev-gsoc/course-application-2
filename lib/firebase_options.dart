@@ -41,48 +41,53 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyCKtNktozuuMP0u4cIbJKftUzAudw2utE8',
-    appId: '1:227776801675:web:9b3c9df33b10c4087d9d8e',
-    messagingSenderId: '227776801675',
-    projectId: 'course-application-1',
-    authDomain: 'course-application-1.firebaseapp.com',
-    storageBucket: 'course-application-1.firebasestorage.app',
-    measurementId: 'G-JKP1ZCCE17',
+    apiKey: 'AIzaSyBPnll5Sz-RpgE5-j97gNkr3xPyP-V4Syc',
+    appId: '1:249380649381:web:2e64daa11a234a5fa7904c',
+    messagingSenderId: '249380649381',
+    projectId: 'course-application-official',
+    authDomain: 'course-application-official.firebaseapp.com',
+    storageBucket: 'course-application-official.firebasestorage.app',
+    measurementId: 'G-PLFRGWGC0Q',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDiQkjwY-IBWGxkLVD-mUTSloe6RFCvBpM',
-    appId: '1:227776801675:android:6ea6d5862f13d32d7d9d8e',
-    messagingSenderId: '227776801675',
-    projectId: 'course-application-1',
-    storageBucket: 'course-application-1.firebasestorage.app',
+    apiKey: 'AIzaSyB5vqjhdcVMpdm4D-6Rl4oo_5yg_LrMPcw',
+    appId: '1:249380649381:android:8f711ad6c719acbaa7904c',
+    messagingSenderId: '249380649381',
+    projectId: 'course-application-official',
+    storageBucket: 'course-application-official.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDJ9cKZeOljszMOScjOzVpImvaxKwp-PcQ',
-    appId: '1:227776801675:ios:d6c683acb6a92fdf7d9d8e',
-    messagingSenderId: '227776801675',
-    projectId: 'course-application-1',
-    storageBucket: 'course-application-1.firebasestorage.app',
+    apiKey: 'AIzaSyB5kAt64xE71wW0RnwhGUCrBf1HyfumL5Q',
+    appId: '1:249380649381:ios:ef8f9e11f20737d6a7904c',
+    messagingSenderId: '249380649381',
+    projectId: 'course-application-official',
+    storageBucket: 'course-application-official.firebasestorage.app',
+    androidClientId: '249380649381-3qpllq64v8jbhnasau7ibljad727jgbj.apps.googleusercontent.com',
+    iosClientId: '249380649381-t0hculo8efp7ifm812ar7idh7gvjdhm0.apps.googleusercontent.com',
     iosBundleId: 'com.example.courseApplication',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyDJ9cKZeOljszMOScjOzVpImvaxKwp-PcQ',
-    appId: '1:227776801675:ios:d6c683acb6a92fdf7d9d8e',
-    messagingSenderId: '227776801675',
-    projectId: 'course-application-1',
-    storageBucket: 'course-application-1.firebasestorage.app',
+    apiKey: 'AIzaSyB5kAt64xE71wW0RnwhGUCrBf1HyfumL5Q',
+    appId: '1:249380649381:ios:ef8f9e11f20737d6a7904c',
+    messagingSenderId: '249380649381',
+    projectId: 'course-application-official',
+    storageBucket: 'course-application-official.firebasestorage.app',
+    androidClientId: '249380649381-3qpllq64v8jbhnasau7ibljad727jgbj.apps.googleusercontent.com',
+    iosClientId: '249380649381-t0hculo8efp7ifm812ar7idh7gvjdhm0.apps.googleusercontent.com',
     iosBundleId: 'com.example.courseApplication',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyCKtNktozuuMP0u4cIbJKftUzAudw2utE8',
-    appId: '1:227776801675:web:6d629f653beb9f797d9d8e',
-    messagingSenderId: '227776801675',
-    projectId: 'course-application-1',
-    authDomain: 'course-application-1.firebaseapp.com',
-    storageBucket: 'course-application-1.firebasestorage.app',
-    measurementId: 'G-JYJHL7HRWV',
+    apiKey: 'AIzaSyBPnll5Sz-RpgE5-j97gNkr3xPyP-V4Syc',
+    appId: '1:249380649381:web:ab7dca2143d08b27a7904c',
+    messagingSenderId: '249380649381',
+    projectId: 'course-application-official',
+    authDomain: 'course-application-official.firebaseapp.com',
+    storageBucket: 'course-application-official.firebasestorage.app',
+    measurementId: 'G-YNB1TFQYZ4',
   );
+
 }

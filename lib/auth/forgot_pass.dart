@@ -1,11 +1,8 @@
-import 'package:course_application/auth/forgot_pass.dart';
-import 'package:course_application/auth/reset_pass.dart';
 import 'package:course_application/constant/constant.dart';
+import 'package:course_application/services/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:iconly/iconly.dart';
-import 'package:otp_text_field/otp_field.dart';
-import 'package:otp_text_field/style.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -16,24 +13,43 @@ class ForgotPasswordScreen extends StatefulWidget {
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final AuthService _authService = AuthService();
   bool _isLoading = false;
 
-  void _sendOtp() {
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  void _sendResetEmail() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
       });
 
-      // Simulate a network request
-      Future.delayed(const Duration(seconds: 2), () {
-        setState(() {
-          _isLoading = false;
-        });
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const ResetPasswordScreen()),
-        );
+      final result = await _authService.sendPasswordResetEmail(
+        email: _emailController.text.trim(),
+      );
+
+      setState(() {
+        _isLoading = false;
       });
+
+      if (mounted) {
+        if (result == 'Success') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Password reset link sent! Check your email.')),
+          );
+          Navigator.pop(context);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(result ?? 'An error occurred')),
+          );
+        }
+      }
     }
   }
 
@@ -44,22 +60,22 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                _buildBackButton(context),
-                _buildImage(),
-                _buildTitle(),
-                _buildSubTitle(),
-                Padding(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-                  child: Form(
-                    key: _formKey,
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  _buildBackButton(context),
+                  _buildImage(),
+                  _buildTitle(),
+                  _buildSubTitle(),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 40),
                     child: _buildForm(),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -112,7 +128,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     return const Padding(
       padding: EdgeInsets.only(top: 20, bottom: 20),
       child: Text(
-        "Don't worry! Input your email for reset password",
+        "Don't worry! Input your email to reset your password.",
         textAlign: TextAlign.center,
         style: TextStyle(fontSize: 16, color: Colors.black54),
       ),
@@ -126,11 +142,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         _buildLabel("Email Address"),
         const SizedBox(height: 10),
         _buildEmailField(),
-        const SizedBox(height: 20),
-        _buildLabel("OTP Code"),
-        const SizedBox(height: 10),
-        _buildOtpField(),
-        const SizedBox(height: 30),
+        const SizedBox(height: 40),
         _isLoading
             ? const Center(child: CircularProgressIndicator())
             : _buildSentButton(),
@@ -147,66 +159,24 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   Widget _buildEmailField() {
-    return Row(
-      children: [
-        Expanded(
-          flex: 3,
-          child: TextFormField(
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter your email';
-              }
-              if (!RegExp(r'\S+@\S+\.\S+').hasMatch(value)) {
-                return 'Please enter a valid email address';
-              }
-              return null;
-            },
-            decoration: InputDecoration(
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              labelText: "Email",
-              hintText: 'Enter Email',
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(
-                vertical: 15,
-              ),
-              elevation: 0,
-              backgroundColor: blue,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            onPressed: () {},
-            child: const Icon(IconlyLight.arrow_right),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildOtpField() {
-    return OTPTextField(
-      contentPadding: const EdgeInsets.symmetric(vertical: 20),
-      length: 5,
-      width: MediaQuery.of(context).size.width,
-      textFieldAlignment: MainAxisAlignment.spaceAround,
-      fieldWidth: 60,
-      fieldStyle: FieldStyle.box,
-      outlineBorderRadius: 15,
-      style: const TextStyle(fontSize: 17),
-      onChanged: (pin) {
-        print("Changed: $pin");
+    return TextFormField(
+      controller: _emailController,
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Please enter your email';
+        }
+        if (!RegExp(r'\S+@\S+\.\S+').hasMatch(value)) {
+          return 'Please enter a valid email address';
+        }
+        return null;
       },
-      onCompleted: (pin) {
-        print("Completed: $pin");
-      },
+      decoration: InputDecoration(
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        labelText: "Email",
+        hintText: 'Enter Email',
+      ),
     );
   }
 
@@ -220,8 +190,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           borderRadius: BorderRadius.circular(15),
         ),
       ),
-      onPressed: _sendOtp,
-      child: const Text("Sent"),
+      onPressed: _sendResetEmail,
+      child: const Text("Send Reset Email"),
     );
   }
 }
