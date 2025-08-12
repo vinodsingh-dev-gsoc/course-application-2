@@ -89,5 +89,4 @@ class DefaultFirebaseOptions {
     storageBucket: 'course-application-official.firebasestorage.app',
     measurementId: 'G-YNB1TFQYZ4',
   );
-
 }

@@ -36,7 +36,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       // User ka naam Firebase Auth aur Firestore dono mein save karenge
       String? result = await _authService.updateUserProfile(name);
 
-      if (result == 'Success') {
+      if (result == null) {
         if (mounted) {
           Navigator.pushAndRemoveUntil(
             context,

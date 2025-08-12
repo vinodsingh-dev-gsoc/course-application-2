@@ -57,7 +57,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() {
       _isLoading = false;
     });
-    if (result == 'Success') {
+    if (result == null) {
       if (mounted) {
         // PEHLE: HomeScreen pe ja rahe the
         // AB: ProfileSetupScreen pe jayenge
