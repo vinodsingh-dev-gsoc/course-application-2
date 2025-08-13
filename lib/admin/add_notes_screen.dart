@@ -41,6 +41,12 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
     }
   }
 
+  void _clearFile() {
+    setState(() {
+      _selectedFile = null;
+    });
+  }
+
   void _saveNote() async {
     if (_formKey.currentState!.validate()) {
       if (_selectedFile == null) {
@@ -84,7 +90,6 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
             SnackBar(content: Text(result)),
           );
         }
-
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Error uploading file!')),
@@ -116,23 +121,12 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _buildTextField(_classController, 'Class ID (e.g., class_10)'),
-                _buildTextField(
-                    _subjectController, 'Subject ID (e.g., physics)'),
+                _buildTextField(_subjectController, 'Subject ID (e.g., physics)'),
                 _buildTextField(
                     _chapterController, 'Chapter Name (e.g., Chapter 1: Light)'),
                 _buildTextField(_patternController, 'Pattern ID (e.g., cbse)'),
                 const SizedBox(height: 24),
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.upload_file),
-                  label: const Text("Upload Notes PDF"),
-                  onPressed: _pickFile,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _selectedFile?.name ?? 'No file selected',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey[700]),
-                ),
+                _buildFilePicker(),
                 const SizedBox(height: 24),
                 _isLoading
                     ? const Center(child: CircularProgressIndicator())
@@ -152,6 +146,43 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildFilePicker() {
+    if (_selectedFile == null) {
+      return OutlinedButton.icon(
+        icon: const Icon(Icons.upload_file),
+        label: const Text("Upload Notes PDF"),
+        onPressed: _pickFile,
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+        ),
+      );
+    } else {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade400),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.picture_as_pdf, color: Colors.red),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                _selectedFile!.name,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: _clearFile,
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   Widget _buildTextField(TextEditingController controller, String label) {
