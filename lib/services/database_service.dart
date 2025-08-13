@@ -1,12 +1,12 @@
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class DatabaseService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final String? uid; // User ID ko store karne ke liye
+  final String? uid;
 
   DatabaseService({this.uid});
 
-  // Notes ko save karne ka function (ab ismein price nahi hai)
   Future<String> addNote({
     required String classId,
     required String subjectId,
@@ -32,22 +32,51 @@ class DatabaseService {
     }
   }
 
-  // Naya function: Admin ke liye class ka price set karne ke liye
-  Future<void> setClassPrice(String classId, String className, double price) async {
-    await _db.collection('classes').doc(classId).set({
-      'name': className,
-      'price': price,
+  Future<void> createCourseStructure({
+    required String classId,
+    required String className,
+    required String patternId,
+    required String patternName,
+    required String subjectId,
+    required String subjectName,
+    required String chapterId,
+    required String chapterName,
+  }) async {
+    final classDoc = _db.collection('classes').doc(classId);
+    final patternDoc = classDoc.collection('patterns').doc(patternId);
+    final subjectDoc = patternDoc.collection('subjects').doc(subjectId);
+    final chapterDoc = subjectDoc.collection('chapters').doc(chapterId);
+
+    await _db.runTransaction((transaction) async {
+      transaction.set(classDoc, {'name': className}, SetOptions(merge: true));
+      transaction.set(patternDoc, {'name': patternName}, SetOptions(merge: true));
+      transaction.set(subjectDoc, {'name': subjectName}, SetOptions(merge: true));
+      transaction.set(chapterDoc, {'name': chapterName}, SetOptions(merge: true));
     });
   }
 
-  // Naya function: User ki purchase record karne ke liye
-  Future<void> recordClassPurchase(String classId) async {
-    if (uid != null) {
-      await _db.collection('users').doc(uid).update({
-        'purchasedClasses': FieldValue.arrayUnion([classId])
-      });
+  Future<void> addNewItem({
+    String? classId,
+    String? patternId,
+    String? subjectId,
+    required String itemType,
+    required String itemId,
+    required String itemName,
+  }) async {
+    DocumentReference? docRef;
+    if (itemType == 'Class') {
+      docRef = _db.collection('classes').doc(itemId);
+    } else if (itemType == 'Pattern' && classId != null) {
+      docRef = _db.collection('classes').doc(classId).collection('patterns').doc(itemId);
+    } else if (itemType == 'Subject' && classId != null && patternId != null) {
+      docRef = _db.collection('classes').doc(classId).collection('patterns').doc(patternId).collection('subjects').doc(itemId);
+    }
+
+    if (docRef != null) {
+      await docRef.set({'name': itemName});
     }
   }
+
   Future<List<QueryDocumentSnapshot>> getNotes({
     required String classId,
     required String subjectId,
@@ -66,10 +95,10 @@ class DatabaseService {
       return querySnapshot.docs;
     } catch (e) {
       print('Error getting notes: $e');
-      return []; // Error ke case mein empty list return karo
+      return [];
     }
   }
-  // Naya function: Check karne ke liye ki user ne class khareedi hai ya nahi
+
   Future<bool> hasAccessToClass(String classId) async {
     if (uid != null) {
       final doc = await _db.collection('users').doc(uid).get();
