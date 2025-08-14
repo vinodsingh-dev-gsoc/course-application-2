@@ -161,7 +161,7 @@ class _SelectionScreenState extends State<SelectionScreen> {
     final notes = await _databaseService.getNotes(
       classId: _selectedClass!.id,
       subjectId: _selectedSubject!.id,
-      chapterName: _selectedChapter!.name,
+      chapterId: _selectedChapter!.name,
       patternId: _selectedPattern!.id,
     );
     setState(() => _isFetchingNotes = false);

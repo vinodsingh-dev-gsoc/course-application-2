@@ -1,4 +1,3 @@
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class DatabaseService {
@@ -7,10 +6,12 @@ class DatabaseService {
 
   DatabaseService({this.uid});
 
+  // ===== CHANGE 1: YAHAN chapterId ADD KIYA =====
   Future<String> addNote({
     required String classId,
     required String subjectId,
-    required String chapterName,
+    required String chapterId, // chapterName ki jagah
+    String? chapterName, // Isko bhi rakhenge taaki display aasan ho
     required String patternId,
     required String pdfUrl,
     required String fileName,
@@ -19,7 +20,8 @@ class DatabaseService {
       await _db.collection('notes').add({
         'classId': classId,
         'subjectId': subjectId,
-        'chapterName': chapterName,
+        'chapterId': chapterId, // ID ko save kiya
+        'chapterName': chapterName, // Naam ko bhi save kar liya
         'patternId': patternId,
         'pdfUrl': pdfUrl,
         'fileName': fileName,
@@ -70,6 +72,8 @@ class DatabaseService {
       docRef = _db.collection('classes').doc(classId).collection('patterns').doc(itemId);
     } else if (itemType == 'Subject' && classId != null && patternId != null) {
       docRef = _db.collection('classes').doc(classId).collection('patterns').doc(patternId).collection('subjects').doc(itemId);
+    } else if (itemType == 'Chapter' && classId != null && patternId != null && subjectId != null) {
+      docRef = _db.collection('classes').doc(classId).collection('patterns').doc(patternId).collection('subjects').doc(subjectId).collection('chapters').doc(itemId);
     }
 
     if (docRef != null) {
@@ -77,10 +81,11 @@ class DatabaseService {
     }
   }
 
+  // ===== CHANGE 2: YAHAN chapterId SE QUERY KI =====
   Future<List<QueryDocumentSnapshot>> getNotes({
     required String classId,
     required String subjectId,
-    required String chapterName,
+    required String chapterId, // chapterName ki jagah
     required String patternId,
   }) async {
     try {
@@ -88,7 +93,7 @@ class DatabaseService {
           .collection('notes')
           .where('classId', isEqualTo: classId)
           .where('subjectId', isEqualTo: subjectId)
-          .where('chapterName', isEqualTo: chapterName)
+          .where('chapterId', isEqualTo: chapterId) // Ab ID se search hoga
           .where('patternId', isEqualTo: patternId)
           .get();
 
