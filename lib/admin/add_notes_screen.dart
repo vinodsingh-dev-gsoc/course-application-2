@@ -1,3 +1,5 @@
+// lib/admin/add_notes_screen.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:course_application/services/database_service.dart';
 import 'package:course_application/services/storage_service.dart';
@@ -6,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 // ===== MODELS (SABME == AUR HASHCODE ADDED) =====
-
 class ClassModel {
   final String id;
   final String name;
@@ -49,7 +50,6 @@ class SubjectModel {
   int get hashCode => id.hashCode;
 }
 
-// ===== NAYA CHAPTER MODEL =====
 class ChapterModel {
   final String id;
   final String name;
@@ -63,7 +63,6 @@ class ChapterModel {
   @override
   int get hashCode => id.hashCode;
 }
-
 
 class AddNotesScreen extends StatefulWidget {
   const AddNotesScreen({super.key});
@@ -83,17 +82,17 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
   List<ClassModel> _classes = [];
   List<PatternModel> _patterns = [];
   List<SubjectModel> _subjects = [];
-  List<ChapterModel> _chapters = []; // Chapter list add ki
+  List<ChapterModel> _chapters = [];
 
   ClassModel? _selectedClass;
   PatternModel? _selectedPattern;
   SubjectModel? _selectedSubject;
-  ChapterModel? _selectedChapter; // Selected chapter add kiya
+  ChapterModel? _selectedChapter;
 
   bool _isLoadingClasses = true;
   bool _isLoadingPatterns = false;
   bool _isLoadingSubjects = false;
-  bool _isLoadingChapters = false; // Chapter loading state add kiya
+  bool _isLoadingChapters = false;
 
   @override
   void initState() {
@@ -101,189 +100,90 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
     _fetchClasses();
   }
 
-  @override
-  void dispose() {
-    // dispose controller yahan se hata diya kyunki ab text field nahi hai
-    super.dispose();
-  }
-
-  // ===== DATA FETCHING FUNCTIONS =====
-
+  // ===== DATA FETCHING FUNCTIONS (Same as before) =====
   Future<void> _fetchClasses() async {
     setState(() => _isLoadingClasses = true);
-    try {
-      final snapshot =
-      await FirebaseFirestore.instance.collection('classes').get();
-      _classes = snapshot.docs
-          .map((doc) => ClassModel(id: doc.id, name: doc.data()['name']))
-          .toList();
-    } catch (e) {
-      print("Error fetching classes: $e");
-    }
+    final snapshot = await FirebaseFirestore.instance.collection('classes').get();
+    _classes = snapshot.docs.map((doc) => ClassModel(id: doc.id, name: doc.data()['name'])).toList();
     setState(() => _isLoadingClasses = false);
   }
 
   Future<void> _fetchPatterns(String classId) async {
     setState(() {
       _isLoadingPatterns = true;
-      _patterns = [];
-      _subjects = [];
-      _chapters = []; // Reset chapters
-      _selectedPattern = null;
-      _selectedSubject = null;
-      _selectedChapter = null; // Reset selected chapter
+      _patterns = []; _subjects = []; _chapters = [];
+      _selectedPattern = null; _selectedSubject = null; _selectedChapter = null;
     });
-    try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('classes')
-          .doc(classId)
-          .collection('patterns')
-          .get();
-      _patterns = snapshot.docs
-          .map((doc) => PatternModel(id: doc.id, name: doc.data()['name']))
-          .toList();
-    } catch (e) {
-      print("Error fetching patterns: $e");
-    }
+    final snapshot = await FirebaseFirestore.instance.collection('classes').doc(classId).collection('patterns').get();
+    _patterns = snapshot.docs.map((doc) => PatternModel(id: doc.id, name: doc.data()['name'])).toList();
     setState(() => _isLoadingPatterns = false);
   }
 
   Future<void> _fetchSubjects(String classId, String patternId) async {
     setState(() {
       _isLoadingSubjects = true;
-      _subjects = [];
-      _chapters = []; // Reset chapters
-      _selectedSubject = null;
-      _selectedChapter = null; // Reset selected chapter
+      _subjects = []; _chapters = [];
+      _selectedSubject = null; _selectedChapter = null;
     });
-    try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('classes')
-          .doc(classId)
-          .collection('patterns')
-          .doc(patternId)
-          .collection('subjects')
-          .get();
-      _subjects = snapshot.docs
-          .map((doc) => SubjectModel(id: doc.id, name: doc.data()['name']))
-          .toList();
-    } catch (e) {
-      print("Error fetching subjects: $e");
-    }
+    final snapshot = await FirebaseFirestore.instance.collection('classes').doc(classId).collection('patterns').doc(patternId).collection('subjects').get();
+    _subjects = snapshot.docs.map((doc) => SubjectModel(id: doc.id, name: doc.data()['name'])).toList();
     setState(() => _isLoadingSubjects = false);
   }
 
-  // ===== NAYA FETCH CHAPTERS FUNCTION =====
   Future<void> _fetchChapters(String classId, String patternId, String subjectId) async {
     setState(() {
       _isLoadingChapters = true;
       _chapters = [];
       _selectedChapter = null;
     });
-    try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('classes')
-          .doc(classId)
-          .collection('patterns')
-          .doc(patternId)
-          .collection('subjects')
-          .doc(subjectId)
-          .collection('chapters')
-          .get();
-      _chapters = snapshot.docs
-          .map((doc) => ChapterModel(id: doc.id, name: doc.data()['name']))
-          .toList();
-    } catch (e) {
-      print("Error fetching chapters: $e");
-    }
+    final snapshot = await FirebaseFirestore.instance.collection('classes').doc(classId).collection('patterns').doc(patternId).collection('subjects').doc(subjectId).collection('chapters').get();
+    _chapters = snapshot.docs.map((doc) => ChapterModel(id: doc.id, name: doc.data()['name'])).toList();
     setState(() => _isLoadingChapters = false);
   }
 
-  // ===== FILE HANDLING AND SAVING =====
-
+  // ===== FILE HANDLING AND SAVING (Same as before) =====
   void _pickFile() async {
     final file = await _storageService.pickFile();
-    if (file != null) {
-      setState(() {
-        _selectedFile = file;
-      });
-    }
+    if (file != null) setState(() => _selectedFile = file);
   }
 
-  void _clearFile() {
-    setState(() {
-      _selectedFile = null;
-    });
-  }
+  void _clearFile() => setState(() => _selectedFile = null);
 
   void _saveNote() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_selectedFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a PDF file!')),
-      );
-      return;
-    }
-
+    if (!_formKey.currentState!.validate() || _selectedFile == null) return;
     setState(() => _isLoading = true);
-
-    // createCourseStructure ki zaroorat yahan nahi hai,
-    // kyunki ab hum chapter select kar rahe hain, naya nahi bana rahe har baar.
-    // Dialog se naya chapter add hoga.
-
     final String fileName = _selectedFile!.name;
-    final String destination =
-        'notes/${_selectedClass!.id}/${_selectedPattern!.id}/${_selectedSubject!.id}/${_selectedChapter!.id}/${DateTime.now().millisecondsSinceEpoch}_$fileName';
-
+    final String destination = 'notes/${_selectedClass!.id}/${_selectedPattern!.id}/${_selectedSubject!.id}/${_selectedChapter!.id}/${DateTime.now().millisecondsSinceEpoch}_$fileName';
     final String? downloadUrl = await _storageService.uploadFile(destination, _selectedFile!);
-
     if (downloadUrl != null) {
-      String result = await _databaseService.addNote(
+      await _databaseService.addNote(
         classId: _selectedClass!.id,
         subjectId: _selectedSubject!.id,
-        chapterId: _selectedChapter!.id, // Selected chapter ka naam
+        chapterId: _selectedChapter!.id,
+        chapterName: _selectedChapter!.name,
         patternId: _selectedPattern!.id,
         pdfUrl: downloadUrl,
         fileName: fileName,
       );
-
-      if (result == 'Success' && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Note uploaded successfully!')),
-        );
-        // Reset file picker
-        setState(() {
-          _selectedFile = null;
-        });
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result)),
-        );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Note uploaded successfully!')));
+        setState(() => _selectedFile = null);
       }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error uploading file!')),
-      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error uploading file!')));
     }
-
-    if (mounted) {
-      setState(() => _isLoading = false);
-    }
+    if (mounted) setState(() => _isLoading = false);
   }
 
-  // ===== DIALOG FOR ADDING NEW ITEMS (UPDATED) =====
-
-  Future<void> _showAddItemDialog(String itemType) async {
+  // ===== DIALOG FOR ADDING NEW ITEMS (UPDATED TO RETURN DATA) =====
+  Future<Map<String, String>?> _showAddItemDialog(String itemType) async {
     final nameController = TextEditingController();
     final idController = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
-    // Chapter ID ke liye ek function
-    String generateId(String name) {
-      return name.toLowerCase().replaceAll(' ', '_').replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '');
-    }
+    String generateId(String name) => name.toLowerCase().replaceAll(' ', '_').replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '');
 
-    final result = await showDialog<bool>(
+    return await showDialog<Map<String, String>?>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Add New $itemType'),
@@ -294,12 +194,9 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
             children: [
               TextFormField(
                 controller: nameController,
-                decoration: InputDecoration(labelText: '$itemType Name (e.g., Class 11)'),
+                decoration: InputDecoration(labelText: '$itemType Name'),
                 validator: (value) => (value?.isEmpty ?? true) ? 'Name cannot be empty' : null,
-                onChanged: (value) {
-                  // ID ko automatically generate karo
-                  idController.text = generateId(value);
-                },
+                onChanged: (value) => idController.text = generateId(value),
               ),
               TextFormField(
                 controller: idController,
@@ -310,48 +207,35 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () async {
               if (formKey.currentState!.validate()) {
+                final String itemId = idController.text.trim();
+                final String itemName = nameController.text.trim();
                 await _databaseService.addNewItem(
                   classId: _selectedClass?.id,
                   patternId: _selectedPattern?.id,
-                  subjectId: _selectedSubject?.id, // Subject ID pass karo
+                  subjectId: _selectedSubject?.id,
                   itemType: itemType,
-                  itemId: idController.text.trim(),
-                  itemName: nameController.text.trim(),
+                  itemId: itemId,
+                  itemName: itemName,
                 );
-                Navigator.pop(context, true);
+                // Return the new data instead of just 'true'
+                if(mounted) Navigator.pop(context, {'id': itemId, 'name': itemName});
               }
             },
-            child: Text('Add'),
+            child: const Text('Add'),
           ),
         ],
       ),
     );
-
-    if (result == true) {
-      if (itemType == 'Class') await _fetchClasses();
-      if (itemType == 'Pattern' && _selectedClass != null) await _fetchPatterns(_selectedClass!.id);
-      if (itemType == 'Subject' && _selectedClass != null && _selectedPattern != null) {
-        await _fetchSubjects(_selectedClass!.id, _selectedPattern!.id);
-      }
-      // Naya chapter add hone ke baad fetch karo
-      if (itemType == 'Chapter' && _selectedClass != null && _selectedPattern != null && _selectedSubject != null) {
-        await _fetchChapters(_selectedClass!.id, _selectedPattern!.id, _selectedSubject!.id);
-      }
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text("Add New Note (Smart)", style: GoogleFonts.poppins()),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
-      ),
+      appBar: AppBar(title: Text("Add New Note (Smart)", style: GoogleFonts.poppins()), backgroundColor: Colors.deepPurple, foregroundColor: Colors.white),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -370,7 +254,16 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
                   },
                   isLoading: _isLoadingClasses,
                   itemAsString: (c) => c.name,
-                  onAddNew: () => _showAddItemDialog('Class'),
+                  // ===== YAHAN CHANGE HUA HAI =====
+                  onAddNew: () async {
+                    final newItemData = await _showAddItemDialog('Class');
+                    if (newItemData != null && mounted) {
+                      await _fetchClasses();
+                      final newClass = ClassModel(id: newItemData['id']!, name: newItemData['name']!);
+                      setState(() => _selectedClass = newClass);
+                      _fetchPatterns(newClass.id);
+                    }
+                  },
                 ),
                 const SizedBox(height: 20),
                 _buildDropdown<PatternModel>(
@@ -379,14 +272,21 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
                   items: _patterns,
                   onChanged: (value) {
                     setState(() => _selectedPattern = value);
-                    if (_selectedClass != null && value != null) {
-                      _fetchSubjects(_selectedClass!.id, value.id);
-                    }
+                    if (_selectedClass != null && value != null) _fetchSubjects(_selectedClass!.id, value.id);
                   },
                   isLoading: _isLoadingPatterns,
                   itemAsString: (p) => p.name,
                   isEnabled: _selectedClass != null,
-                  onAddNew: () => _showAddItemDialog('Pattern'),
+                  // ===== YAHAN CHANGE HUA HAI =====
+                  onAddNew: () async {
+                    final newItemData = await _showAddItemDialog('Pattern');
+                    if (newItemData != null && mounted) {
+                      await _fetchPatterns(_selectedClass!.id);
+                      final newPattern = PatternModel(id: newItemData['id']!, name: newItemData['name']!);
+                      setState(() => _selectedPattern = newPattern);
+                      _fetchSubjects(_selectedClass!.id, newPattern.id);
+                    }
+                  },
                 ),
                 const SizedBox(height: 20),
                 _buildDropdown<SubjectModel>(
@@ -395,18 +295,23 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
                   items: _subjects,
                   onChanged: (value) {
                     setState(() => _selectedSubject = value);
-                    if (_selectedClass != null && _selectedPattern != null && value != null) {
-                      _fetchChapters(_selectedClass!.id, _selectedPattern!.id, value.id);
-                    }
+                    if (_selectedClass != null && _selectedPattern != null && value != null) _fetchChapters(_selectedClass!.id, _selectedPattern!.id, value.id);
                   },
                   isLoading: _isLoadingSubjects,
                   itemAsString: (s) => s.name,
                   isEnabled: _selectedPattern != null,
-                  onAddNew: () => _showAddItemDialog('Subject'),
+                  // ===== YAHAN CHANGE HUA HAI =====
+                  onAddNew: () async {
+                    final newItemData = await _showAddItemDialog('Subject');
+                    if (newItemData != null && mounted) {
+                      await _fetchSubjects(_selectedClass!.id, _selectedPattern!.id);
+                      final newSubject = SubjectModel(id: newItemData['id']!, name: newItemData['name']!);
+                      setState(() => _selectedSubject = newSubject);
+                      _fetchChapters(_selectedClass!.id, _selectedPattern!.id, newSubject.id);
+                    }
+                  },
                 ),
                 const SizedBox(height: 20),
-
-                // ===== CHAPTER TEXTFIELD KI JAGAH NAYA DROPDOWN =====
                 _buildDropdown<ChapterModel>(
                   label: 'Chapter',
                   value: _selectedChapter,
@@ -415,23 +320,24 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
                   isLoading: _isLoadingChapters,
                   itemAsString: (c) => c.name,
                   isEnabled: _selectedSubject != null,
-                  onAddNew: () => _showAddItemDialog('Chapter'),
+                  // ===== YAHAN CHANGE HUA HAI =====
+                  onAddNew: () async {
+                    final newItemData = await _showAddItemDialog('Chapter');
+                    if (newItemData != null && mounted) {
+                      await _fetchChapters(_selectedClass!.id, _selectedPattern!.id, _selectedSubject!.id);
+                      final newChapter = ChapterModel(id: newItemData['id']!, name: newItemData['name']!);
+                      setState(() => _selectedChapter = newChapter);
+                    }
+                  },
                 ),
-
                 const SizedBox(height: 24),
                 _buildFilePicker(),
                 const SizedBox(height: 24),
-                _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : ElevatedButton.icon(
+                _isLoading ? const Center(child: CircularProgressIndicator()) : ElevatedButton.icon(
                   icon: const Icon(Icons.save, color: Colors.white),
                   onPressed: _saveNote,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  label: const Text("Save Note",
-                      style: TextStyle(fontSize: 18, color: Colors.white)),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(vertical: 16)),
+                  label: const Text("Save Note", style: TextStyle(fontSize: 18, color: Colors.white)),
                 ),
               ],
             ),
@@ -441,7 +347,7 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
     );
   }
 
-  // ===== DROPDOWN WIDGET (UPDATED FOR "ADD NEW") =====
+  // ===== DROPDOWN WIDGET (BINA KISI CHANGE KE) =====
   Widget _buildDropdown<T>({
     required String label,
     required T? value,
@@ -452,12 +358,8 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
     bool isLoading = false,
     bool isEnabled = true,
   }) {
-    // Dropdown items ki list banayi
     List<DropdownMenuItem<T>> dropdownItems = items.map((T item) {
-      return DropdownMenuItem<T>(
-        value: item,
-        child: Text(itemAsString(item), style: GoogleFonts.poppins()),
-      );
+      return DropdownMenuItem<T>(value: item, child: Text(itemAsString(item), style: GoogleFonts.poppins()));
     }).toList();
 
     return DropdownButtonFormField<T>(
@@ -466,17 +368,13 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
         filled: !isEnabled,
         fillColor: Colors.grey[200],
-        prefixIcon: isLoading
-            ? Transform.scale(scale: 0.5, child: const CircularProgressIndicator())
-            : null,
+        prefixIcon: isLoading ? Transform.scale(scale: 0.5, child: const CircularProgressIndicator()) : null,
       ),
       value: value,
       isExpanded: true,
       items: [
         ...dropdownItems,
-        // "Add New" button ek special DropdownMenuItem hai
         DropdownMenuItem(
-          // value null rakha taaki yeh select na ho sake
           value: null,
           enabled: false,
           child: InkWell(
@@ -505,31 +403,18 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
         icon: const Icon(Icons.upload_file),
         label: const Text("Upload Notes PDF"),
         onPressed: _pickFile,
-        style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-        ),
+        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
       );
     } else {
       return Container(
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade400),
-          borderRadius: BorderRadius.circular(12),
-        ),
+        decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade400), borderRadius: BorderRadius.circular(12)),
         child: Row(
           children: [
             const Icon(Icons.picture_as_pdf, color: Colors.red),
             const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                _selectedFile!.name,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.close),
-              onPressed: _clearFile,
-            ),
+            Expanded(child: Text(_selectedFile!.name, overflow: TextOverflow.ellipsis)),
+            IconButton(icon: const Icon(Icons.close), onPressed: _clearFile),
           ],
         ),
       );

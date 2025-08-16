@@ -1,33 +1,68 @@
+// lib/screens/selection_screen.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:course_application/screens/notes_display_screen.dart';
 import 'package:course_application/services/database_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-// Data ko hold karne ke liye simple models (PatternModel naya hai)
+// ===== MODELS (SABME == AUR HASHCODE ADDED) =====
 class ClassModel {
   final String id;
   final String name;
   ClassModel({required this.id, required this.name});
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+          other is ClassModel && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
 
 class PatternModel {
   final String id;
   final String name;
   PatternModel({required this.id, required this.name});
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+          other is PatternModel && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
 
 class SubjectModel {
   final String id;
   final String name;
   SubjectModel({required this.id, required this.name});
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+          other is SubjectModel && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
 
 class ChapterModel {
   final String id;
   final String name;
   ChapterModel({required this.id, required this.name});
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+          other is ChapterModel && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
+
 
 class SelectionScreen extends StatefulWidget {
   const SelectionScreen({super.key});
@@ -39,19 +74,19 @@ class SelectionScreen extends StatefulWidget {
 class _SelectionScreenState extends State<SelectionScreen> {
   // Lists to hold data from Firestore
   List<ClassModel> _classes = [];
-  List<PatternModel> _patterns = []; // Hardcoded se dynamic ho gaya
+  List<PatternModel> _patterns = [];
   List<SubjectModel> _subjects = [];
   List<ChapterModel> _chapters = [];
 
   // Selected values
   ClassModel? _selectedClass;
-  PatternModel? _selectedPattern; // Ab yeh Model hai
+  PatternModel? _selectedPattern;
   SubjectModel? _selectedSubject;
   ChapterModel? _selectedChapter;
 
   // Loading states
   bool _isLoadingClasses = true;
-  bool _isLoadingPatterns = false; // Naya loading state
+  bool _isLoadingPatterns = false;
   bool _isLoadingSubjects = false;
   bool _isLoadingChapters = false;
   bool _isFetchingNotes = false;
@@ -64,7 +99,7 @@ class _SelectionScreenState extends State<SelectionScreen> {
     _fetchClasses();
   }
 
-  // --- Data Fetching Functions (Ab ek dusre se linked hain) ---
+  // --- Data Fetching Functions (Cascading Logic) ---
 
   Future<void> _fetchClasses() async {
     setState(() => _isLoadingClasses = true);
@@ -158,12 +193,16 @@ class _SelectionScreenState extends State<SelectionScreen> {
 
   void _getNotes() async {
     setState(() => _isFetchingNotes = true);
+
+    // ===== YAHAN CHANGE HUA HAI =====
     final notes = await _databaseService.getNotes(
       classId: _selectedClass!.id,
       subjectId: _selectedSubject!.id,
-      chapterId: _selectedChapter!.name,
       patternId: _selectedPattern!.id,
+      chapterId: _selectedChapter!.id, // Ab ID se notes dhoondhenge
     );
+    // ===== CHANGE KHATAM =====
+
     setState(() => _isFetchingNotes = false);
     if (mounted) {
       Navigator.push(
@@ -308,6 +347,7 @@ class _SelectionScreenState extends State<SelectionScreen> {
         );
       }).toList(),
       onChanged: isEnabled ? onChanged : null,
+      validator: (value) => value == null ? 'Please select an option' : null,
     );
   }
 }
