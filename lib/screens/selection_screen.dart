@@ -5,6 +5,8 @@ import 'package:course_application/screens/notes_display_screen.dart';
 import 'package:course_application/services/database_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 // ===== MODELS (SABME == AUR HASHCODE ADDED) =====
 class ClassModel {
@@ -90,13 +92,28 @@ class _SelectionScreenState extends State<SelectionScreen> {
   bool _isLoadingSubjects = false;
   bool _isLoadingChapters = false;
   bool _isFetchingNotes = false;
+  bool _hasPurchased = false; // Purchase status add kiya gaya hai
 
   final DatabaseService _databaseService = DatabaseService();
+
+  late Razorpay _razorpay;
+  // TEST KEY ID yahan hardcode ki hai
+  final String _razorpayKeyId = "rzp_test_R63e5HcDWJPQmZ";
 
   @override
   void initState() {
     super.initState();
     _fetchClasses();
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+  }
+
+  @override
+  void dispose() {
+    _razorpay.clear();
+    super.dispose();
   }
 
   // --- Data Fetching Functions (Cascading Logic) ---
@@ -191,26 +208,117 @@ class _SelectionScreenState extends State<SelectionScreen> {
     setState(() => _isLoadingChapters = false);
   }
 
-  void _getNotes() async {
+  // Check karega ki notes purchase kiye hain ya nahi
+  Future<void> _checkIfPurchased() async {
+    if (_selectedChapter == null) return;
+    setState(() => _isFetchingNotes = true);
+    try {
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(FirebaseAuth.instance.currentUser!.uid).get();
+      if (userDoc.exists && userDoc.data()!.containsKey('purchasedChapters')) {
+        final List purchasedChapters = userDoc.data()!['purchasedChapters'];
+        setState(() {
+          _hasPurchased = purchasedChapters.contains(_selectedChapter!.id);
+        });
+      } else {
+        setState(() => _hasPurchased = false);
+      }
+    } catch (e) {
+      print("Error checking purchase status: $e");
+      setState(() => _hasPurchased = false);
+    } finally {
+      if(mounted) setState(() => _isFetchingNotes = false);
+    }
+  }
+
+
+  void _startPayment() async {
+    if (_razorpayKeyId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Payment key load nahi hui. Please provide a key in the code.")));
+      return;
+    }
+
     setState(() => _isFetchingNotes = true);
 
-    // ===== YAHAN CHANGE HUA HAI =====
-    final notes = await _databaseService.getNotes(
-      classId: _selectedClass!.id,
-      subjectId: _selectedSubject!.id,
-      patternId: _selectedPattern!.id,
-      chapterId: _selectedChapter!.id, // Ab ID se notes dhoondhenge
-    );
-    // ===== CHANGE KHATAM =====
+    var options = {
+      'key': _razorpayKeyId,
+      'amount': 5000, // 50 INR in paise
+      'name': 'Course Application',
+      'description': 'Notes for ${_selectedChapter!.name}',
+      'prefill': {'email': FirebaseAuth.instance.currentUser?.email ?? ''}
+    };
+    try {
+      _razorpay.open(options);
+    } catch (e) {
+      print("Error opening Razorpay checkout: $e");
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Could not start payment. Please try again.")));
+    } finally {
+      if (mounted) setState(() => _isFetchingNotes = false);
+    }
+  }
 
-    setState(() => _isFetchingNotes = false);
-    if (mounted) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => NotesDisplayScreen(notes: notes),
-        ),
+  void _handlePaymentSuccess(PaymentSuccessResponse response) async {
+    print("Payment Successful: ${response.paymentId}");
+    // Demo ke liye, hum direct Firestore mein user ko access de rahe hain.
+    // Production mein, yeh approach insecure hai.
+    try {
+      final userRef = FirebaseFirestore.instance.collection('users').doc(FirebaseAuth.instance.currentUser!.uid);
+      await userRef.update({
+        'purchasedChapters': FieldValue.arrayUnion([_selectedChapter!.id]),
+      });
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Payment successful! Access granted.")));
+      setState(() => _hasPurchased = true);
+
+      // Ab notes screen par navigate karenge
+      final notes = await _databaseService.getNotes(
+        classId: _selectedClass!.id,
+        subjectId: _selectedSubject!.id,
+        patternId: _selectedPattern!.id,
+        chapterId: _selectedChapter!.id,
       );
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => NotesDisplayScreen(notes: notes),
+          ),
+        );
+      }
+
+    } catch (e) {
+      print("Error updating user document: $e");
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error granting access.")));
+    }
+  }
+
+  void _handlePaymentError(PaymentFailureResponse response) {
+    print("Payment Error: ${response.code} - ${response.message}");
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Payment failed: ${response.message}")));
+  }
+
+  void _handleExternalWallet(ExternalWalletResponse response) {
+    print("External Wallet: ${response.walletName}");
+  }
+
+  void _getNotes() async {
+    if (_hasPurchased) {
+      setState(() => _isFetchingNotes = true);
+      final notes = await _databaseService.getNotes(
+        classId: _selectedClass!.id,
+        subjectId: _selectedSubject!.id,
+        patternId: _selectedPattern!.id,
+        chapterId: _selectedChapter!.id,
+      );
+      setState(() => _isFetchingNotes = false);
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => NotesDisplayScreen(notes: notes),
+          ),
+        );
+      }
+    } else {
+      _startPayment();
     }
   }
 
@@ -286,6 +394,9 @@ class _SelectionScreenState extends State<SelectionScreen> {
               items: _chapters,
               onChanged: (value) {
                 setState(() => _selectedChapter = value);
+                if (value != null) {
+                  _checkIfPurchased();
+                }
               },
               isLoading: _isLoadingChapters,
               itemAsString: (ChapterModel c) => c.name,
@@ -307,7 +418,7 @@ class _SelectionScreenState extends State<SelectionScreen> {
                 valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
               )
                   : Text(
-                'Get Notes',
+                _hasPurchased ? 'View Notes' : 'Unlock for ₹50',
                 style: GoogleFonts.poppins(
                     fontSize: 18, color: Colors.white),
               ),
