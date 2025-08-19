@@ -1,5 +1,5 @@
 import 'package:course_application/screens/account_screen.dart';
-import 'package:course_application/screens/selection_screen.dart';
+import '../selection_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -22,15 +22,32 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    if (index == 3) {
+      Navigator.push(
+        context,
+        PageRouteBuilder(
+          transitionDuration: const Duration(milliseconds: 500),
+          pageBuilder: (context, animation, secondaryAnimation) =>
+          const AccountScreen(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+        ),
+      );
+    } else {
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens.elementAt(_selectedIndex),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _screens,
+      ),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
@@ -61,6 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
         selectedItemColor: Colors.deepPurple,
         unselectedItemColor: Colors.grey,
         showUnselectedLabels: true,
+        elevation: 5.0,
       ),
     );
   }
@@ -96,53 +114,102 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0),
-          child: ListView(
-            children: [
-              const SizedBox(height: 20),
-              _buildHeader(),
-              const SizedBox(height: 30),
-              _buildSearchBar(),
-              const SizedBox(height: 30),
-              _buildCategories(context),
-              const SizedBox(height: 30),
-              _buildCourseList(),
-            ],
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            pinned: false,
+            floating: true,
+            stretch: true,
+            expandedHeight: 100.0,
+            flexibleSpace: FlexibleSpaceBar(
+              titlePadding:
+              const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+              title: _buildHeader(context),
+              background: Container(color: Colors.white),
+            ),
           ),
-        ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding:
+              const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+              child: _buildSearchBar(),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding:
+              const EdgeInsets.symmetric(horizontal: 20.0, vertical: 20.0),
+              child: _buildCategories(context),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              child: _buildCourseList(),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Hello, $_displayName! 👋',
-              style: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              "Let's start learning",
-              style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey[600]),
-            ),
-          ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Hello, $_displayName! 👋',
+                style: GoogleFonts.poppins(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black),
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                "Let's start learning",
+                style:
+                GoogleFonts.poppins(fontSize: 14, color: Colors.grey[600]),
+              ),
+            ],
+          ),
         ),
-        CircleAvatar(
-          radius: 28,
-          backgroundImage: _currentUser?.photoURL != null
-              ? NetworkImage(_currentUser!.photoURL!)
-              : null,
-          backgroundColor: const Color(0xFFE0E0E0),
-          child: _currentUser?.photoURL == null
-              ? const Icon(Icons.person, size: 30, color: Colors.deepPurple)
-              : null,
+        GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              PageRouteBuilder(
+                transitionDuration: const Duration(milliseconds: 500),
+                pageBuilder: (context, animation, secondaryAnimation) =>
+                const AccountScreen(),
+                transitionsBuilder:
+                    (context, animation, secondaryAnimation, child) {
+                  return FadeTransition(opacity: animation, child: child);
+                },
+              ),
+            );
+          },
+          child: Hero(
+            tag: 'profile-pic',
+            child: CircleAvatar(
+              radius: 28,
+              backgroundImage: _currentUser?.photoURL != null
+                  ? NetworkImage(_currentUser!.photoURL!)
+                  : null,
+              backgroundColor: const Color(0xFFE0E0E0),
+              child: _currentUser?.photoURL == null
+                  ? const Icon(Icons.person,
+                  size: 30, color: Colors.deepPurple)
+                  : null,
+            ),
+          ),
         ),
       ],
     );
@@ -154,13 +221,17 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
         color: const Color(0xFFF5F5F7),
         borderRadius: BorderRadius.circular(30.0),
       ),
-      child: const TextField(
+      child: TextField(
+        style: GoogleFonts.poppins(),
         decoration: InputDecoration(
           hintText: 'Search for notes...',
-          prefixIcon: Icon(Icons.search, color: Colors.grey),
-          suffixIcon: Icon(Icons.filter_list, color: Colors.deepPurple),
+          hintStyle: GoogleFonts.poppins(color: Colors.grey),
+          prefixIcon: const Icon(Icons.search, color: Colors.grey),
+          suffixIcon:
+          const Icon(Icons.filter_list, color: Colors.deepPurple),
           border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          contentPadding:
+          const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
         ),
       ),
     );
@@ -170,45 +241,82 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Category', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 15),
+        Text('Category',
+            style: GoogleFonts.poppins(
+                fontSize: 22, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 20),
         Row(
           children: [
-            _buildCategoryButton('All Notes', const Color(0xFFE3F2FD), Colors.blue, () {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const SelectionScreen()));
-            }),
+            _buildCategoryButton(
+              'All Notes',
+              Colors.blue,
+              Icons.menu_book,
+                  () {
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const SelectionScreen()));
+              },
+            ),
             const SizedBox(width: 16),
-            _buildCategoryButton('Newest', const Color(0xFFEDE7F6), Colors.deepPurple, () {
-              print('Newest button tapped!');
-            }),
+            _buildCategoryButton(
+              'Newest',
+              Colors.deepPurple,
+              Icons.new_releases,
+                  () {},
+            ),
           ],
         ),
         const SizedBox(height: 15),
         Row(
           children: [
-            _buildCategoryButton('Saved', const Color(0xFFFFF3E0), Colors.orange, () {
-              print('Saved button tapped!');
-            }),
+            _buildCategoryButton(
+              'Saved',
+              Colors.orange,
+              Icons.bookmark,
+                  () {},
+            ),
             const SizedBox(width: 16),
-            _buildCategoryButton('Recommend', const Color(0xFFE8F5E9), Colors.green, () {
-              print('Recommend button tapped!');
-            }),
+            _buildCategoryButton(
+              'Recommend',
+              Colors.green,
+              Icons.star,
+                  () {},
+            ),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildCategoryButton(String text, Color bgColor, Color textColor, VoidCallback onTap) {
+  Widget _buildCategoryButton(
+      String text, Color color, IconData iconData, VoidCallback onTap) {
     return Expanded(
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(12)),
-          child: Center(
-            child: Text(text, style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 16)),
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withOpacity(0.3)),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(iconData, color: color, size: 28),
+              const SizedBox(height: 8),
+              Text(
+                text,
+                style: GoogleFonts.poppins(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
         ),
       ),
@@ -216,12 +324,16 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
   }
 
   Widget _buildCourseList() {
-    return const Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Recent Notes', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-        SizedBox(height: 15),
-        Center(child: Text('No recent notes yet.', style: TextStyle(color: Colors.grey))),
+        Text('Recent Notes',
+            style: GoogleFonts.poppins(
+                fontSize: 22, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 15),
+        Center(
+            child: Text('No recent notes yet.',
+                style: GoogleFonts.poppins(color: Colors.grey))),
       ],
     );
   }

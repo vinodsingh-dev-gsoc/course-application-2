@@ -210,23 +210,31 @@ class _SelectionScreenState extends State<SelectionScreen> {
 
   // Check karega ki notes purchase kiye hain ya nahi
   Future<void> _checkIfPurchased() async {
-    if (_selectedChapter == null) return;
-    setState(() => _isFetchingNotes = true);
+    // Ab hum class select hote hi check kar sakte hain, chapter tak ka wait nahi karna
+    if (_selectedClass == null) return;
+    setState(() => _isFetchingNotes = true); // Loader dikhane ke liye
     try {
-      final userDoc = await FirebaseFirestore.instance.collection('users').doc(FirebaseAuth.instance.currentUser!.uid).get();
-      if (userDoc.exists && userDoc.data()!.containsKey('purchasedChapters')) {
-        final List purchasedChapters = userDoc.data()!['purchasedChapters'];
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(FirebaseAuth.instance.currentUser!.uid)
+          .get();
+
+      if (userDoc.exists && userDoc.data()!.containsKey('purchasedClasses')) {
+        final List purchasedClasses = userDoc.data()!['purchasedClasses'];
+        // Check karo ki selected class ki ID us list mein hai ya nahi
         setState(() {
-          _hasPurchased = purchasedChapters.contains(_selectedChapter!.id);
+          _hasPurchased = purchasedClasses.contains(_selectedClass!.id);
         });
       } else {
+        // Agar 'purchasedClasses' field hi nahi hai, matlab kuch nahi khareeda
         setState(() => _hasPurchased = false);
       }
     } catch (e) {
       print("Error checking purchase status: $e");
       setState(() => _hasPurchased = false);
     } finally {
-      if(mounted) setState(() => _isFetchingNotes = false);
+      // Chapter select hone par bhi loader band karna hai
+      if (mounted) setState(() => _isFetchingNotes = false);
     }
   }
 
@@ -255,17 +263,22 @@ class _SelectionScreenState extends State<SelectionScreen> {
       if (mounted) setState(() => _isFetchingNotes = false);
     }
   }
-
   void _handlePaymentSuccess(PaymentSuccessResponse response) async {
     print("Payment Successful: ${response.paymentId}");
     // Demo ke liye, hum direct Firestore mein user ko access de rahe hain.
-    // Production mein, yeh approach insecure hai.
+    // Production mein, yeh approach insecure hai. (REMINDER: Use backend)
     try {
-      final userRef = FirebaseFirestore.instance.collection('users').doc(FirebaseAuth.instance.currentUser!.uid);
-      await userRef.update({
-        'purchasedChapters': FieldValue.arrayUnion([_selectedChapter!.id]),
-      });
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Payment successful! Access granted.")));
+      final userRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(FirebaseAuth.instance.currentUser!.uid);
+
+      // MODIFIED: Ab hum 'purchasedClasses' array mein CLASS ID add karenge
+      await userRef.set({ // .set with merge: true is safer, it creates doc if not exists
+        'purchasedClasses': FieldValue.arrayUnion([_selectedClass!.id]),
+      }, SetOptions(merge: true));
+
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Payment successful! Class Unlocked.")));
       setState(() => _hasPurchased = true);
 
       // Ab notes screen par navigate karenge
@@ -283,10 +296,10 @@ class _SelectionScreenState extends State<SelectionScreen> {
           ),
         );
       }
-
     } catch (e) {
       print("Error updating user document: $e");
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error granting access.")));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("Error granting access.")));
     }
   }
 
@@ -418,7 +431,8 @@ class _SelectionScreenState extends State<SelectionScreen> {
                 valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
               )
                   : Text(
-                _hasPurchased ? 'View Notes' : 'Unlock for ₹50',
+                // MODIFIED TEXT: Text ab class purchase ke hisaab se dikhega
+                _hasPurchased ? 'View Notes' : 'Unlock Class for ₹50',
                 style: GoogleFonts.poppins(
                     fontSize: 18, color: Colors.white),
               ),
