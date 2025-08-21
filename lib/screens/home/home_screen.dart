@@ -1,4 +1,6 @@
+import 'package:carousel_slider/carousel_slider.dart';
 import 'package:course_application/screens/account_screen.dart';
+import '../saved_notes_screen.dart';
 import '../selection_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -16,29 +18,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   static final List<Widget> _screens = <Widget>[
     const _HomeScreenContent(),
-    const Center(child: Text('Saved Screen')),
+    const SavedNotesScreen(),
     const Center(child: Text('Courses Screen')),
     const AccountScreen(),
   ];
 
   void _onItemTapped(int index) {
-    if (index == 3) {
-      Navigator.push(
-        context,
-        PageRouteBuilder(
-          transitionDuration: const Duration(milliseconds: 500),
-          pageBuilder: (context, animation, secondaryAnimation) =>
-          const AccountScreen(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-        ),
-      );
-    } else {
-      setState(() {
-        _selectedIndex = index;
-      });
-    }
+    setState(() {
+      _selectedIndex = index;
+    });
   }
 
   @override
@@ -94,6 +82,13 @@ class _HomeScreenContent extends StatefulWidget {
 class __HomeScreenContentState extends State<_HomeScreenContent> {
   User? _currentUser;
   String _displayName = 'User';
+  int _currentBannerIndex = 0;
+
+  final List<String> eventBanners = [
+    'Event 1: Flutter Workshop Coming Soon!',
+    'Event 2: Live Q&A with Experts!',
+    'Event 3: New DSA Course Launch!',
+  ];
 
   @override
   void initState() {
@@ -136,6 +131,9 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
               const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
               child: _buildSearchBar(),
             ),
+          ),
+          SliverToBoxAdapter(
+            child: _buildEventsBanner(),
           ),
           SliverToBoxAdapter(
             child: Padding(
@@ -183,18 +181,7 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
         ),
         GestureDetector(
           onTap: () {
-            Navigator.push(
-              context,
-              PageRouteBuilder(
-                transitionDuration: const Duration(milliseconds: 500),
-                pageBuilder: (context, animation, secondaryAnimation) =>
-                const AccountScreen(),
-                transitionsBuilder:
-                    (context, animation, secondaryAnimation, child) {
-                  return FadeTransition(opacity: animation, child: child);
-                },
-              ),
-            );
+            // This can be removed or used for another purpose, since bottom nav handles it
           },
           child: Hero(
             tag: 'profile-pic',
@@ -237,6 +224,59 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
     );
   }
 
+  Widget _buildEventsBanner() {
+    return Column(
+      children: [
+        CarouselSlider(
+          items: eventBanners.map((item) => Container(
+            margin: const EdgeInsets.symmetric(horizontal: 5.0),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              color: Colors.deepPurple,
+            ),
+            child: Center(
+              child: Text(
+                item,
+                style: GoogleFonts.poppins(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          )).toList(),
+          options: CarouselOptions(
+              height: 150,
+              autoPlay: true,
+              enlargeCenterPage: true,
+              aspectRatio: 16/9,
+              viewportFraction: 0.8,
+              onPageChanged: (index, reason) {
+                setState(() {
+                  _currentBannerIndex = index;
+                });
+              }
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: eventBanners.asMap().entries.map((entry) {
+            return Container(
+              width: 8.0,
+              height: 8.0,
+              margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: (Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white
+                    : Colors.deepPurple)
+                    .withOpacity(_currentBannerIndex == entry.key ? 0.9 : 0.4),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
   Widget _buildCategories(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -260,28 +300,17 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
             ),
             const SizedBox(width: 16),
             _buildCategoryButton(
-              'Newest',
-              Colors.deepPurple,
-              Icons.new_releases,
-                  () {},
-            ),
-          ],
-        ),
-        const SizedBox(height: 15),
-        Row(
-          children: [
-            _buildCategoryButton(
               'Saved',
               Colors.orange,
               Icons.bookmark,
-                  () {},
-            ),
-            const SizedBox(width: 16),
-            _buildCategoryButton(
-              'Recommend',
-              Colors.green,
-              Icons.star,
-                  () {},
+                  () {  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const SavedNotesScreen()));
+
+                    // You can add navigation to the saved screen here if needed,
+                // but the bottom nav bar already does this.
+              },
             ),
           ],
         ),
