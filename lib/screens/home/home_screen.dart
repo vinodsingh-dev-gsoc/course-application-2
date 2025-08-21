@@ -19,7 +19,6 @@ class _HomeScreenState extends State<HomeScreen> {
   static final List<Widget> _screens = <Widget>[
     const _HomeScreenContent(),
     const SavedNotesScreen(),
-    const Center(child: Text('Courses Screen')),
     const AccountScreen(),
   ];
 
@@ -47,11 +46,6 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icon(Icons.bookmark_border),
             activeIcon: Icon(Icons.bookmark),
             label: 'Saved',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.book_outlined),
-            activeIcon: Icon(Icons.book),
-            label: 'Courses',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
@@ -304,11 +298,11 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
               Colors.orange,
               Icons.bookmark,
                   () {  Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const SavedNotesScreen()));
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const SavedNotesScreen()));
 
-                    // You can add navigation to the saved screen here if needed,
+                // You can add navigation to the saved screen here if needed,
                 // but the bottom nav bar already does this.
               },
             ),

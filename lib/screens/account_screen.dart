@@ -1,4 +1,3 @@
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:course_application/services/auth_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -6,11 +5,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:iconly/iconly.dart';
 
 // Screens jahan navigate karna hai
+import '../admin/add_notes_screen.dart';
 import 'edit_profile_screen.dart';
 import 'settings_screen.dart';
-import 'subscription_screen.dart';
 import 'package:course_application/admin/add_notes_screen.dart';
-import 'welcome_screen.dart'; // FIX: WelcomeScreen ko import kiya
+import 'welcome_screen.dart';
 
 class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
@@ -34,6 +33,7 @@ class _AccountScreenState extends State<AccountScreen> {
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text("Confirm Logout"),
           content: const Text("Are you sure you want to log out?"),
           actions: <Widget>[
@@ -46,13 +46,8 @@ class _AccountScreenState extends State<AccountScreen> {
             TextButton(
               child: const Text("Logout", style: TextStyle(color: Colors.red)),
               onPressed: () async {
-                // Pehle dialog ko band karo
                 Navigator.of(dialogContext).pop();
-
-                // Fir sign out karo
                 await _authService.signOut();
-
-                // Finally, WelcomeScreen par jao aur saari purani screens हटा do
                 if (mounted) {
                   Navigator.pushAndRemoveUntil(
                     context,
@@ -71,13 +66,11 @@ class _AccountScreenState extends State<AccountScreen> {
   @override
   Widget build(BuildContext context) {
     if (_currentUser == null) {
-      // Agar user null hai, toh turant WelcomeScreen dikha do.
-      // Yeh ek fallback hai, waise to auth stream isko handle karega.
       return const WelcomeScreen();
     }
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
         title: Text(
           "My Profile",
@@ -87,7 +80,7 @@ class _AccountScreenState extends State<AccountScreen> {
           ),
         ),
         centerTitle: true,
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         automaticallyImplyLeading: false,
       ),
@@ -96,70 +89,13 @@ class _AccountScreenState extends State<AccountScreen> {
           padding: const EdgeInsets.all(20.0),
           child: Column(
             children: [
-              _buildProfileAvatar(),
+              _buildProfileCard(),
               const SizedBox(height: 20),
-              Text(
-                _currentUser?.displayName ?? 'User',
-                style: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
+              _buildMenuCard(),
+              const SizedBox(height: 20),
+              _buildAdminCard(),
               const SizedBox(height: 10),
-              Text(
-                _currentUser?.email ?? 'No email available',
-                style: GoogleFonts.poppins(color: Colors.grey[600]),
-              ),
-              const SizedBox(height: 30),
-              const Divider(),
-              const SizedBox(height: 10),
-              ProfileMenuTile(
-                title: "Edit Profile",
-                icon: IconlyLight.edit,
-                onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const EditProfileScreen()));
-                },
-              ),
-              ProfileMenuTile(
-                title: "Settings",
-                icon: IconlyLight.setting,
-                onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen()));
-                },
-              ),
-              ProfileMenuTile(
-                title: "My Subscription",
-                icon: IconlyLight.wallet,
-                onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const SubscriptionScreen()));
-                },
-              ),
-
-              FutureBuilder<bool>(
-                future: _authService.isAdmin(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const SizedBox.shrink();
-                  }
-                  if (snapshot.hasData && snapshot.data == true) {
-                    return ProfileMenuTile(
-                      title: "Admin Panel: Add Notes",
-                      icon: Icons.admin_panel_settings,
-                      textColor: Colors.green[700],
-                      onTap: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => const AddNotesScreen()));
-                      },
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
-              ),
-
-              const Divider(),
-              const SizedBox(height: 10),
-              ProfileMenuTile(
-                title: "Logout",
-                icon: IconlyLight.logout,
-                textColor: Colors.red,
-                onTap: _logout,
-              ),
+              _buildLogoutCard(),
             ],
           ),
         ),
@@ -167,45 +103,155 @@ class _AccountScreenState extends State<AccountScreen> {
     );
   }
 
+  Widget _buildProfileCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 2,
+            blurRadius: 10,
+          )
+        ],
+      ),
+      child: Column(
+        children: [
+          _buildProfileAvatar(),
+          const SizedBox(height: 15),
+          Text(
+            _currentUser?.displayName ?? 'User Name',
+            style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            _currentUser?.email ?? 'user.email@example.com',
+            style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey[600]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMenuCard() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        children: [
+          ProfileMenuTile(
+            title: "Edit Profile",
+            icon: IconlyLight.edit,
+            onTap: () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const EditProfileScreen()));
+            },
+          ),
+          const Divider(indent: 20, endIndent: 20),
+          ProfileMenuTile(
+            title: "Settings",
+            icon: IconlyLight.setting,
+            onTap: () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen()));
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAdminCard() {
+    return FutureBuilder<bool>(
+      future: _authService.isAdmin(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox.shrink(); // Jab tak load ho raha hai, kuch na dikhao
+        }
+        if (snapshot.hasData && snapshot.data == true) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: ProfileMenuTile(
+              title: "Admin Panel: Add Notes",
+              icon: Icons.admin_panel_settings_outlined,
+              textColor: Colors.green[700],
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const AddNotesScreen()));
+              },
+            ),
+          );
+        }
+        return const SizedBox.shrink(); // Agar admin nahi hai, to kuch na dikhao
+      },
+    );
+  }
+
+  Widget _buildLogoutCard() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: ProfileMenuTile(
+        title: "Logout",
+        icon: IconlyLight.logout,
+        textColor: Colors.redAccent,
+        onTap: _logout,
+      ),
+    );
+  }
+
+
   Widget _buildProfileAvatar() {
     final photoUrl = _currentUser?.photoURL;
-
-    return Stack(
-      children: [
-        CircleAvatar(
-          radius: 70,
-          backgroundImage: photoUrl != null && photoUrl.isNotEmpty
-              ? NetworkImage(photoUrl)
-              : const AssetImage('assets/suzume.jpg') as ImageProvider,
-          onBackgroundImageError: (_, __) {
-            // Agar network image load nahi hoti hai toh fallback
-          },
-        ),
-        Positioned(
-          bottom: 0,
-          right: 0,
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.deepPurple,
-              shape: BoxShape.circle,
-              border: Border.all(width: 3, color: Colors.white),
-            ),
-            child: const Padding(
-              padding: EdgeInsets.all(8.0),
-              child: Icon(
-                IconlyBold.camera,
-                color: Colors.white,
-                size: 20,
+    return GestureDetector(
+      onTap: () {
+        // Yahan profile picture change karne ka logic add kar sakte ho
+      },
+      child: Stack(
+        children: [
+          CircleAvatar(
+            radius: 60,
+            backgroundImage: photoUrl != null && photoUrl.isNotEmpty
+                ? NetworkImage(photoUrl)
+                : const AssetImage('assets/Welcome_Image.png') as ImageProvider,
+            backgroundColor: Colors.grey[200],
+          ),
+          Positioned(
+            bottom: 0,
+            right: 0,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.deepPurple,
+                shape: BoxShape.circle,
+                border: Border.all(width: 3, color: Colors.white),
+              ),
+              child: const Padding(
+                padding: EdgeInsets.all(6.0),
+                child: Icon(
+                  IconlyBold.camera,
+                  color: Colors.white,
+                  size: 18,
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-// Reusable Menu Tile Widget
+// Reusable Menu Tile Widget (Thoda sa clean up)
 class ProfileMenuTile extends StatelessWidget {
   const ProfileMenuTile({
     super.key,
@@ -236,8 +282,9 @@ class ProfileMenuTile extends StatelessWidget {
       title: Text(
         title,
         style: GoogleFonts.poppins(
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w600,
           color: textColor,
+          fontSize: 16,
         ),
       ),
       trailing: const Icon(

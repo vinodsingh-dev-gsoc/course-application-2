@@ -4,8 +4,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'home/home_screen.dart';
-
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -14,11 +12,14 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
+  final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+  TextEditingController();
   final AuthService _authService = AuthService();
   bool _isLoading = false;
+  bool _isPasswordVisible = false;
 
   @override
   void dispose() {
@@ -29,19 +30,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _signUp() async {
-    if (_emailController.text.isEmpty ||
-        _passwordController.text.isEmpty ||
-        _confirmPasswordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all fields')),
-      );
-      return;
-    }
-
-    if (_passwordController.text != _confirmPasswordController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Passwords do not match')),
-      );
+    if (!_formKey.currentState!.validate()) {
       return;
     }
 
@@ -54,23 +43,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
       password: _passwordController.text.trim(),
     );
 
-    setState(() {
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+
     if (result == null) {
       if (mounted) {
-        // PEHLE: HomeScreen pe ja rahe the
-        // AB: ProfileSetupScreen pe jayenge
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (context) => const ProfileSetupScreen()), // <-- BADLAV YAHAN HAI
+          MaterialPageRoute(builder: (context) => const ProfileSetupScreen()),
               (Route<dynamic> route) => false,
         );
       }
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result ?? 'An unknown error occurred')),
+          SnackBar(
+            content: Text(result),
+            backgroundColor: Colors.redAccent,
+          ),
         );
       }
     }
@@ -89,110 +82,177 @@ class _RegisterScreenState extends State<RegisterScreen> {
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  "Create Account",
-                  style: GoogleFonts.poppins(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  "Let's get started with your new account!",
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                const SizedBox(height: 48),
-                TextField(
-                  controller: _emailController,
-                  decoration: InputDecoration(
-                    hintText: "Email",
-                    prefixIcon: const Icon(Icons.email_outlined),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    filled: true,
-                    fillColor: Colors.grey[200],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: _passwordController,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    hintText: "Password",
-                    prefixIcon: const Icon(Icons.lock_outline),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    filled: true,
-                    fillColor: Colors.grey[200],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: _confirmPasswordController,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    hintText: "Repeat Password",
-                    prefixIcon: const Icon(Icons.lock_outline),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    filled: true,
-                    fillColor: Colors.grey[200],
-                  ),
-                ),
-                const SizedBox(height: 32),
-                _isLoading
-                    ? const CircularProgressIndicator()
-                    : ElevatedButton(
-                  onPressed: _signUp,
-                  child: const Text("Sign Up",
-                      style:
-                      TextStyle(color: Colors.white, fontSize: 18)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF42A5F5),
-                    minimumSize: const Size(double.infinity, 55),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                RichText(
-                  text: TextSpan(
-                    style: GoogleFonts.poppins(color: Colors.grey[700]),
-                    children: [
-                      const TextSpan(text: "Already a member? "),
-                      TextSpan(
-                        text: "Login now",
-                        style: const TextStyle(
-                          color: Colors.blueAccent,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        recognizer: TapGestureRecognizer()
-                          ..onTap = () {
-                            Navigator.pop(context);
-                          },
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildHeader(),
+                  const SizedBox(height: 48),
+                  _buildEmailField(),
+                  const SizedBox(height: 20),
+                  _buildPasswordField(),
+                  const SizedBox(height: 20),
+                  _buildConfirmPasswordField(),
+                  const SizedBox(height: 32),
+                  _buildSignUpButton(),
+                  const SizedBox(height: 24),
+                  _buildLoginNowText(),
+                ],
+              ),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Column(
+      children: [
+        Text(
+          "Create Account",
+          style: GoogleFonts.poppins(
+            fontSize: 32,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          "Let's get started with your new account!",
+          textAlign: TextAlign.center,
+          style: GoogleFonts.poppins(
+            fontSize: 18,
+            color: Colors.grey[600],
+          ),
+        ),
+      ],
+    );
+  }
+
+  TextFormField _buildEmailField() {
+    return TextFormField(
+      controller: _emailController,
+      keyboardType: TextInputType.emailAddress,
+      decoration: InputDecoration(
+        labelText: "Email",
+        prefixIcon: const Icon(Icons.email_outlined),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Please enter your email';
+        }
+        if (!RegExp(r'\S+@\S+\.\S+').hasMatch(value)) {
+          return 'Please enter a valid email address';
+        }
+        return null;
+      },
+    );
+  }
+
+  TextFormField _buildPasswordField() {
+    return TextFormField(
+      controller: _passwordController,
+      obscureText: !_isPasswordVisible,
+      decoration: InputDecoration(
+        labelText: "Password",
+        prefixIcon: const Icon(Icons.lock_outline),
+        suffixIcon: IconButton(
+          icon: Icon(
+            _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+          ),
+          onPressed: () {
+            setState(() {
+              _isPasswordVisible = !_isPasswordVisible;
+            });
+          },
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Please enter a password';
+        }
+        if (value.length < 6) {
+          return 'Password must be at least 6 characters long';
+        }
+        return null;
+      },
+    );
+  }
+
+  TextFormField _buildConfirmPasswordField() {
+    return TextFormField(
+      controller: _confirmPasswordController,
+      obscureText: !_isPasswordVisible,
+      decoration: InputDecoration(
+        labelText: "Confirm Password",
+        prefixIcon: const Icon(Icons.lock_outline),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Please confirm your password';
+        }
+        if (value != _passwordController.text) {
+          return 'Passwords do not match';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildSignUpButton() {
+    return _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : ElevatedButton(
+      onPressed: _signUp,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF42A5F5),
+        minimumSize: const Size(double.infinity, 55),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      child: Text(
+        "Sign Up",
+        style: GoogleFonts.poppins(
+          color: Colors.white,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoginNowText() {
+    return RichText(
+      textAlign: TextAlign.center,
+      text: TextSpan(
+        style: GoogleFonts.poppins(color: Colors.grey[700]),
+        children: [
+          const TextSpan(text: "Already a member? "),
+          TextSpan(
+            text: "Login now",
+            style: const TextStyle(
+              color: Colors.blueAccent,
+              fontWeight: FontWeight.bold,
+            ),
+            recognizer: TapGestureRecognizer()
+              ..onTap = () {
+                Navigator.pop(context);
+              },
+          ),
+        ],
       ),
     );
   }

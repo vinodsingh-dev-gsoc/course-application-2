@@ -2,7 +2,6 @@ import 'package:course_application/constant/constant.dart';
 import 'package:course_application/services/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:iconly/iconly.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -23,59 +22,86 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     super.dispose();
   }
 
-  void _sendResetEmail() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
+  Future<void> _sendResetEmail() async {
+    // Keyboard ko hide karein taki SnackBar aaram se dikhe
+    FocusScope.of(context).unfocus();
 
-      final result = await _authService.sendPasswordResetEmail(
-        email: _emailController.text.trim(),
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    final result = await _authService.sendPasswordResetEmail(
+      email: _emailController.text.trim(),
+    );
+
+    // Ye check karega ki widget abhi bhi screen pe hai ya nahi
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (result == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password reset link sent! Check your email.'),
+          backgroundColor: Colors.green,
+        ),
       );
-
-      setState(() {
-        _isLoading = false;
-      });
-
-      if (mounted) {
-        if (result == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Password reset link sent! Check your email.')),
-          );
+      // Thoda delay add karte hain taaki user SnackBar padh sake
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) {
           Navigator.pop(context);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(result ?? 'An error occurred')),
-          );
         }
-      }
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        // Ek standard AppBar use karna better practice hai
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: const BackButton(color: Colors.black),
+        title: Text(
+          "Forgot Password",
+          style: GoogleFonts.poppins(
+            color: Colors.black,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        centerTitle: true,
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  _buildBackButton(context),
-                  _buildImage(),
-                  _buildTitle(),
-                  _buildSubTitle(),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 40),
-                    child: _buildForm(),
-                  ),
-                ],
-              ),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildImage(),
+                const SizedBox(height: 32),
+                _buildSubTitle(),
+                const SizedBox(height: 32),
+                _buildEmailField(),
+                const SizedBox(height: 40),
+                _buildSentButton(),
+              ],
             ),
           ),
         ),
@@ -83,99 +109,68 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     );
   }
 
-  Widget _buildBackButton(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: GestureDetector(
-        onTap: () => Navigator.pop(context),
-        child: Row(
-          children: [
-            const Icon(
-              IconlyLight.arrow_left,
-              color: Colors.black54,
-            ),
-            const SizedBox(width: 10),
-            Text(
-              "Back",
-              style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w600, color: Colors.black54),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildImage() {
-    return Image.asset(
-      "assets/forgot.png",
-      width: 300,
-    );
-  }
-
-  Widget _buildTitle() {
-    return Padding(
-      padding: const EdgeInsets.only(top: 20),
-      child: Text(
-        "Forgot Password?",
-        style: GoogleFonts.poppins(
-            fontSize: 25, fontWeight: FontWeight.w600, color: black),
+    // Thodi animation se feel aachi aati hai ✨
+    return TweenAnimationBuilder(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 700),
+      builder: (context, double value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 50 * (1 - value)),
+            child: child,
+          ),
+        );
+      },
+      child: Image.asset(
+        "assets/forgot.png", // Make sure this asset exists
+        height: 250,
       ),
     );
   }
 
   Widget _buildSubTitle() {
-    return const Padding(
-      padding: EdgeInsets.only(top: 20, bottom: 20),
-      child: Text(
-        "Don't worry! Input your email to reset your password.",
-        textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 16, color: Colors.black54),
-      ),
-    );
-  }
-
-  Widget _buildForm() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildLabel("Email Address"),
-        const SizedBox(height: 10),
-        _buildEmailField(),
-        const SizedBox(height: 40),
-        _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _buildSentButton(),
-      ],
-    );
-  }
-
-  Widget _buildLabel(String text) {
     return Text(
-      text,
-      style: const TextStyle(
-          fontWeight: FontWeight.w600, color: Colors.black54, fontSize: 16),
+      "Don't worry! Enter your registered email below to receive password reset instruction.",
+      textAlign: TextAlign.center,
+      style: GoogleFonts.poppins(
+        fontSize: 16,
+        color: Colors.black54,
+        fontWeight: FontWeight.w500,
+      ),
     );
   }
 
   Widget _buildEmailField() {
     return TextFormField(
       controller: _emailController,
+      autofocus: true, // User ke liye aasani
+      keyboardType: TextInputType.emailAddress,
+      textInputAction: TextInputAction.done, // Keyboard pe 'done' button
       validator: (value) {
-        if (value == null || value.isEmpty) {
+        if (value == null || value.trim().isEmpty) {
           return 'Please enter your email';
         }
-        if (!RegExp(r'\S+@\S+\.\S+').hasMatch(value)) {
+        final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
+        if (!emailRegex.hasMatch(value)) {
           return 'Please enter a valid email address';
         }
         return null;
       },
       decoration: InputDecoration(
+        prefixIcon: const Icon(Icons.email_outlined),
+        labelText: "Email Address",
+        hintText: 'you@example.com',
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
         ),
-        labelText: "Email",
-        hintText: 'Enter Email',
+        filled: true,
+        fillColor: Colors.grey[100],
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
       ),
     );
   }
@@ -184,14 +179,31 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
         backgroundColor: blue,
-        fixedSize: Size.fromWidth(MediaQuery.of(context).size.width),
-        padding: const EdgeInsets.symmetric(vertical: 20),
+        padding: const EdgeInsets.symmetric(vertical: 16),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        elevation: 5, // Thoda shadow aacha lagta hai
+        shadowColor: blue.withOpacity(0.4),
+      ),
+      onPressed: _isLoading ? null : _sendResetEmail,
+      child: _isLoading
+          ? const SizedBox(
+        height: 24,
+        width: 24,
+        child: CircularProgressIndicator(
+          color: Colors.white,
+          strokeWidth: 3,
+        ),
+      )
+          : Text(
+        "Send Reset Email",
+        style: GoogleFonts.poppins(
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
         ),
       ),
-      onPressed: _sendResetEmail,
-      child: const Text("Send Reset Email"),
     );
   }
 }
