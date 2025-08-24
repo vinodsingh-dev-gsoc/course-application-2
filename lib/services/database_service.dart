@@ -5,7 +5,54 @@ class DatabaseService {
   final String? uid;
 
   DatabaseService({this.uid});
+  Future<DocumentSnapshot> getUser(String uid) {
+    return _db.collection('users').doc(uid).get();
+  }
+  Stream<DocumentSnapshot> getUserStream(String uid) {
+    return _db.collection('users').doc(uid).snapshots();
+  }
 
+  // ++ YEH FUNCTION ADD KARO ++
+  // Yeh user ke recent notes ki ek live stream dega
+  Stream<QuerySnapshot> getRecentNotesStream(String uid) {
+    return _db
+        .collection('users')
+        .doc(uid)
+        .collection('recentNotes')
+        .orderBy('lastViewed', descending: true)
+        .limit(5) // Sirf last 5 recent notes dikhayenge
+        .snapshots();
+  }
+
+  // ++ AUR YEH BHI ADD KARO ++
+  // Yeh function note ko user ke recents mein add/update karega
+  Future<void> addNoteToRecents(String uid, Map<String, dynamic> noteData) {
+    // Hum note ki document ID ko hi recent note ki ID banayenge
+    // Isse duplicate entries nahi hongi, sirf timestamp update hoga
+    final noteId = noteData['id'];
+
+    return _db
+        .collection('users')
+        .doc(uid)
+        .collection('recentNotes')
+        .doc(noteId)
+        .set({
+      ...noteData, // Note ka saara data (title, url, etc.)
+      'lastViewed': FieldValue.serverTimestamp(), // Aur abhi ka time
+    });
+  }
+  // ++ AND ADD THIS METHOD ++
+  Future<void> updateUser(String uid, {String? fullName, String? userClass, String? photoUrl}) {
+    Map<String, dynamic> dataToUpdate = {};
+    if (fullName != null) dataToUpdate['displayName'] = fullName;
+    if (userClass != null) dataToUpdate['class'] = userClass;
+    if (photoUrl != null) dataToUpdate['photoURL'] = photoUrl;
+
+    if (dataToUpdate.isNotEmpty) {
+      return _db.collection('users').doc(uid).update(dataToUpdate);
+    }
+    return Future.value();
+  }
   // ===== CHANGE 1: YAHAN chapterId ADD KIYA =====
   Future<String> addNote({
     required String classId,

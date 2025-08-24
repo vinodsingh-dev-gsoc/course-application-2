@@ -1,12 +1,18 @@
 // lib/screens/notes_display_screen.dart
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:course_application/screens/pdf_screen_viewer.dart';
+import 'package:course_application/screens/pdf_screen_viewer.dart'; // Correct screen name
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../services/database_service.dart';
+
 class NotesDisplayScreen extends StatelessWidget {
   final List<QueryDocumentSnapshot> notes;
+  // TODO: `subjectName` ko yahan pe add karo, for example:
+  // final String subjectName;
+  // const NotesDisplayScreen({super.key, required this.notes, required this.subjectName});
 
   const NotesDisplayScreen({super.key, required this.notes});
 
@@ -20,16 +26,20 @@ class NotesDisplayScreen extends StatelessWidget {
       ),
       body: notes.isEmpty
           ? Center(
-        child: Text(
-          "Sorry, no notes found for your selection.",
-          style: GoogleFonts.poppins(fontSize: 18, color: Colors.grey),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20.0),
+          child: Text(
+            "Sorry, no notes found for your selection.",
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(fontSize: 18, color: Colors.grey),
+          ),
         ),
       )
           : ListView.builder(
         itemCount: notes.length,
         itemBuilder: (context, index) {
           final noteData = notes[index].data() as Map<String, dynamic>;
-          final noteId = notes[index].id; // <-- YEH HAI ASLI HERO!
+          final noteId = notes[index].id;
 
           final pdfUrl = noteData['pdfUrl'];
           final fileName = noteData['fileName'] ?? 'Untitled Note';
@@ -52,13 +62,24 @@ class NotesDisplayScreen extends StatelessWidget {
               ),
               onTap: () {
                 if (pdfUrl != null && pdfUrl is String && pdfUrl.isNotEmpty) {
+                  final user = FirebaseAuth.instance.currentUser;
+                  if (user != null) {
+                    // Note ko recents mein add karo
+                    DatabaseService().addNoteToRecents(user.uid, {
+                      'id': noteId, // Correct: Use noteId
+                      'title': fileName, // Correct: Use fileName
+                      'pdfUrl': pdfUrl, // Correct: Use pdfUrl
+                      // 'subjectName': subjectName, // TODO: Isko enable karne ke liye upar constructor mein add karo
+                    });
+                  }
+
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => PdfViewerScreen(
+                      builder: (context) => PdfViewerScreen( // Correct screen name
+                        noteId: noteId,
                         pdfUrl: pdfUrl,
                         title: fileName,
-                        noteId: noteId, // <-- HUMNE ID YAHAN PASS KAR DI!
                       ),
                     ),
                   );

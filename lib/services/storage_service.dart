@@ -10,6 +10,21 @@ class StorageService {
   // File pick karne ke liye ek common object
   PlatformFile? _pickedFile;
 
+  // ++ ADD THIS METHOD ++
+  Future<String> uploadProfilePicture(String uid, File image) async {
+    try {
+      // Profile pictures ke liye ek alag folder banate hain
+      final ref = _storage.ref('profile_pictures/$uid');
+      final uploadTask = ref.putFile(image);
+      final snapshot = await uploadTask;
+      final downloadUrl = await snapshot.ref.getDownloadURL();
+      return downloadUrl;
+    } catch (e) {
+      print('Error uploading profile picture: $e');
+      rethrow; // Error ko aage pass kardo taaki UI pe dikha sakein
+    }
+  }
+
   // File pick karo
   Future<PlatformFile?> pickFile() async {
     final result = await FilePicker.platform.pickFiles(

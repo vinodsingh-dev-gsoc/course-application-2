@@ -1,10 +1,16 @@
+// lib/screens/home/home_screen.dart
+
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:course_application/screens/account_screen.dart';
-import '../saved_notes_screen.dart';
-import '../selection_screen.dart';
+import 'package:course_application/screens/pdf_screen_viewer.dart';
+import 'package:course_application/screens/saved_notes_screen.dart';
+import 'package:course_application/screens/selection_screen.dart';
+import 'package:course_application/services/database_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:course_application/services/notification_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,7 +20,18 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final NotificationService _notificationService = NotificationService();
   int _selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeNotifications();
+  }
+
+  void _initializeNotifications() async {
+    await _notificationService.initNotifications();
+  }
 
   static final List<Widget> _screens = <Widget>[
     const _HomeScreenContent(),
@@ -115,7 +132,7 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
             flexibleSpace: FlexibleSpaceBar(
               titlePadding:
               const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
-              title: _buildHeader(context),
+              title: _buildHeader(),
               background: Container(color: Colors.white),
             ),
           ),
@@ -133,21 +150,24 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
             child: Padding(
               padding:
               const EdgeInsets.symmetric(horizontal: 20.0, vertical: 20.0),
-              child: _buildCategories(context),
+              child: _buildCategories(),
             ),
           ),
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0),
-              child: _buildCourseList(),
+              padding: const EdgeInsets.fromLTRB(20.0, 0, 20.0, 15.0),
+              child: Text('Recent Notes',
+                  style: GoogleFonts.poppins(
+                      fontSize: 22, fontWeight: FontWeight.bold)),
             ),
           ),
+          _buildRecentNotesList(),
         ],
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -175,21 +195,20 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
         ),
         GestureDetector(
           onTap: () {
-            // This can be removed or used for another purpose, since bottom nav handles it
+            // AccountScreen pe navigate karne ke liye index change karo
+            // Yeh better approach hai than pushing a new screen
+            // (assuming _onItemTapped is accessible or handled by parent)
           },
-          child: Hero(
-            tag: 'profile-pic',
-            child: CircleAvatar(
-              radius: 28,
-              backgroundImage: _currentUser?.photoURL != null
-                  ? NetworkImage(_currentUser!.photoURL!)
-                  : null,
-              backgroundColor: const Color(0xFFE0E0E0),
-              child: _currentUser?.photoURL == null
-                  ? const Icon(Icons.person,
-                  size: 30, color: Colors.deepPurple)
-                  : null,
-            ),
+          child: CircleAvatar(
+            radius: 28,
+            backgroundImage: _currentUser?.photoURL != null
+                ? NetworkImage(_currentUser!.photoURL!)
+                : null,
+            backgroundColor: const Color(0xFFE0E0E0),
+            child: _currentUser?.photoURL == null
+                ? const Icon(Icons.person,
+                size: 30, color: Colors.deepPurple)
+                : null,
           ),
         ),
       ],
@@ -271,7 +290,7 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
     );
   }
 
-  Widget _buildCategories(BuildContext context) {
+  Widget _buildCategories() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -297,13 +316,11 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
               'Saved',
               Colors.orange,
               Icons.bookmark,
-                  () {  Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const SavedNotesScreen()));
-
-                // You can add navigation to the saved screen here if needed,
-                // but the bottom nav bar already does this.
+                  () {
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const SavedNotesScreen()));
               },
             ),
           ],
@@ -346,18 +363,74 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
     );
   }
 
-  Widget _buildCourseList() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Recent Notes',
-            style: GoogleFonts.poppins(
-                fontSize: 22, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 15),
-        Center(
-            child: Text('No recent notes yet.',
-                style: GoogleFonts.poppins(color: Colors.grey))),
-      ],
+  Widget _buildRecentNotesList() {
+    if (_currentUser == null) {
+      return const SliverToBoxAdapter(
+        child: Center(child: Text('Please log in to see recent notes.')),
+      );
+    }
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: DatabaseService().getRecentNotesStream(_currentUser!.uid),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SliverToBoxAdapter(
+              child: Center(child: CircularProgressIndicator()));
+        }
+        if (snapshot.hasError) {
+          return const SliverToBoxAdapter(
+              child: Center(child: Text('Something went wrong!')));
+        }
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return SliverToBoxAdapter(
+            child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20.0),
+                  child: Text('No recent notes yet.',
+                      style: GoogleFonts.poppins(color: Colors.grey)),
+                )),
+          );
+        }
+
+        final recentNotes = snapshot.data!.docs;
+
+        return SliverPadding(
+          padding: const EdgeInsets.fromLTRB(20.0, 0, 20.0, 20.0),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                final note = recentNotes[index].data() as Map<String, dynamic>;
+                return _buildRecentNoteCard(note);
+              },
+              childCount: recentNotes.length,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildRecentNoteCard(Map<String, dynamic> note) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12.0),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 2,
+      shadowColor: Colors.deepPurple.withOpacity(0.1),
+      child: ListTile(
+        leading: const Icon(Icons.picture_as_pdf, color: Colors.redAccent, size: 28),
+        title: Text(note['title'] ?? 'Untitled Note',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+        subtitle: Text(note['subjectName'] ?? 'General', style: GoogleFonts.poppins()),
+        onTap: () {
+          Navigator.push(context, MaterialPageRoute(
+            builder: (context) => PdfViewerScreen(
+              noteId: note['id'],
+              pdfUrl: note['pdfUrl'],
+              title: note['title'],
+            ),
+          ));
+        },
+      ),
     );
   }
 }

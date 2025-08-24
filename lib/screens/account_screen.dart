@@ -1,14 +1,16 @@
+// lib/screens/account_screen.dart
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:course_application/services/database_service.dart';
 import 'package:course_application/services/auth_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:iconly/iconly.dart';
 
-// Screens jahan navigate karna hai
 import '../admin/add_notes_screen.dart';
 import 'edit_profile_screen.dart';
 import 'settings_screen.dart';
-import 'package:course_application/admin/add_notes_screen.dart';
 import 'welcome_screen.dart';
 
 class AccountScreen extends StatefulWidget {
@@ -20,12 +22,13 @@ class AccountScreen extends StatefulWidget {
 
 class _AccountScreenState extends State<AccountScreen> {
   final AuthService _authService = AuthService();
+  final DatabaseService _databaseService = DatabaseService();
   User? _currentUser;
 
   @override
   void initState() {
     super.initState();
-    _currentUser = FirebaseAuth.instance.currentUser;
+    _currentUser = _authService.currentUser();
   }
 
   void _logout() async {
@@ -89,7 +92,7 @@ class _AccountScreenState extends State<AccountScreen> {
           padding: const EdgeInsets.all(20.0),
           child: Column(
             children: [
-              _buildProfileCard(),
+              _buildProfileSection(),
               const SizedBox(height: 20),
               _buildMenuCard(),
               const SizedBox(height: 20),
@@ -103,32 +106,87 @@ class _AccountScreenState extends State<AccountScreen> {
     );
   }
 
-  Widget _buildProfileCard() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 2,
-            blurRadius: 10,
-          )
-        ],
-      ),
-      child: Column(
-        children: [
-          _buildProfileAvatar(),
-          const SizedBox(height: 15),
-          Text(
-            _currentUser?.displayName ?? 'User Name',
-            style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.bold),
+  Widget _buildProfileSection() {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: _databaseService.getUserStream(_currentUser!.uid),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError || !snapshot.hasData || !snapshot.data!.exists) {
+          return const Center(child: Text('Could not load profile data.'));
+        }
+
+        final userData = snapshot.data!.data() as Map<String, dynamic>;
+        final String displayName = userData['displayName'] ?? 'User Name';
+        final String email = _currentUser!.email ?? 'user.email@example.com';
+        final String? photoUrl = userData['photoURL'];
+
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.1),
+                spreadRadius: 2,
+                blurRadius: 10,
+              )
+            ],
           ),
-          const SizedBox(height: 5),
-          Text(
-            _currentUser?.email ?? 'user.email@example.com',
-            style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey[600]),
+          child: Column(
+            children: [
+              _buildProfileAvatar(photoUrl),
+              const SizedBox(height: 15),
+              Text(
+                displayName,
+                style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                email,
+                style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey[600]),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildProfileAvatar(String? photoUrl) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const EditProfileScreen()));
+      },
+      child: Stack(
+        children: [
+          CircleAvatar(
+            radius: 60,
+            backgroundImage: photoUrl != null && photoUrl.isNotEmpty
+                ? NetworkImage(photoUrl)
+                : const AssetImage('assets/Welcome_Image.png') as ImageProvider,
+            backgroundColor: Colors.grey[200],
+          ),
+          Positioned(
+            bottom: 0,
+            right: 0,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.deepPurple,
+                shape: BoxShape.circle,
+                border: Border.all(width: 3, color: Colors.white),
+              ),
+              child: const Padding(
+                padding: EdgeInsets.all(6.0),
+                child: Icon(
+                  IconlyBold.camera,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -169,7 +227,7 @@ class _AccountScreenState extends State<AccountScreen> {
       future: _authService.isAdmin(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox.shrink(); // Jab tak load ho raha hai, kuch na dikhao
+          return const SizedBox.shrink();
         }
         if (snapshot.hasData && snapshot.data == true) {
           return Container(
@@ -189,7 +247,7 @@ class _AccountScreenState extends State<AccountScreen> {
             ),
           );
         }
-        return const SizedBox.shrink(); // Agar admin nahi hai, to kuch na dikhao
+        return const SizedBox.shrink();
       },
     );
   }
@@ -209,49 +267,8 @@ class _AccountScreenState extends State<AccountScreen> {
       ),
     );
   }
-
-
-  Widget _buildProfileAvatar() {
-    final photoUrl = _currentUser?.photoURL;
-    return GestureDetector(
-      onTap: () {
-        // Yahan profile picture change karne ka logic add kar sakte ho
-      },
-      child: Stack(
-        children: [
-          CircleAvatar(
-            radius: 60,
-            backgroundImage: photoUrl != null && photoUrl.isNotEmpty
-                ? NetworkImage(photoUrl)
-                : const AssetImage('assets/Welcome_Image.png') as ImageProvider,
-            backgroundColor: Colors.grey[200],
-          ),
-          Positioned(
-            bottom: 0,
-            right: 0,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.deepPurple,
-                shape: BoxShape.circle,
-                border: Border.all(width: 3, color: Colors.white),
-              ),
-              child: const Padding(
-                padding: EdgeInsets.all(6.0),
-                child: Icon(
-                  IconlyBold.camera,
-                  color: Colors.white,
-                  size: 18,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
-// Reusable Menu Tile Widget (Thoda sa clean up)
 class ProfileMenuTile extends StatelessWidget {
   const ProfileMenuTile({
     super.key,
