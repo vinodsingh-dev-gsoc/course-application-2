@@ -1,9 +1,9 @@
 // main.dart
+import 'package:course_application/screens/splash_screen.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'auth/auth_wrapper.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -35,7 +35,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Course Application',
       debugShowCheckedModeBanner: false,
-      home: AuthWrapper(),
+      home: SplashScreen(),
     );
   }
 }

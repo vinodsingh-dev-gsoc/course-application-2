@@ -1,70 +1,12 @@
-// lib/screens/selection_screen.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:course_application/models/selection_models.dart';
 import 'package:course_application/screens/notes_display_screen.dart';
 import 'package:course_application/services/database_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
-
-// ===== MODELS (SABME == AUR HASHCODE ADDED) =====
-class ClassModel {
-  final String id;
-  final String name;
-  ClassModel({required this.id, required this.name});
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-          other is ClassModel && runtimeType == other.runtimeType && id == other.id;
-
-  @override
-  int get hashCode => id.hashCode;
-}
-
-class PatternModel {
-  final String id;
-  final String name;
-  PatternModel({required this.id, required this.name});
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-          other is PatternModel && runtimeType == other.runtimeType && id == other.id;
-
-  @override
-  int get hashCode => id.hashCode;
-}
-
-class SubjectModel {
-  final String id;
-  final String name;
-  SubjectModel({required this.id, required this.name});
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-          other is SubjectModel && runtimeType == other.runtimeType && id == other.id;
-
-  @override
-  int get hashCode => id.hashCode;
-}
-
-class ChapterModel {
-  final String id;
-  final String name;
-  ChapterModel({required this.id, required this.name});
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-          other is ChapterModel && runtimeType == other.runtimeType && id == other.id;
-
-  @override
-  int get hashCode => id.hashCode;
-}
-
+import 'package:lottie/lottie.dart';
 
 class SelectionScreen extends StatefulWidget {
   const SelectionScreen({super.key});
@@ -74,31 +16,28 @@ class SelectionScreen extends StatefulWidget {
 }
 
 class _SelectionScreenState extends State<SelectionScreen> {
-  // Lists to hold data from Firestore
+  int _currentStep = 0;
   List<ClassModel> _classes = [];
   List<PatternModel> _patterns = [];
   List<SubjectModel> _subjects = [];
   List<ChapterModel> _chapters = [];
 
-  // Selected values
   ClassModel? _selectedClass;
   PatternModel? _selectedPattern;
   SubjectModel? _selectedSubject;
   ChapterModel? _selectedChapter;
 
-  // Loading states
   bool _isLoadingClasses = true;
   bool _isLoadingPatterns = false;
   bool _isLoadingSubjects = false;
   bool _isLoadingChapters = false;
   bool _isFetchingNotes = false;
-  bool _hasPurchased = false; // Purchase status add kiya gaya hai
+  bool _hasPurchased = false;
+  int _freePdfViewCount = 0; // Free view counter
 
   final DatabaseService _databaseService = DatabaseService();
-
   late Razorpay _razorpay;
-  // TEST KEY ID yahan hardcode ki hai
-  final String _razorpayKeyId = "rzp_test_R63e5HcDWJPQmZ";
+  final String _razorpayKeyId = "rzp_test_R63e5HcDWJPQmZ"; // Replace with your key
 
   @override
   void initState() {
@@ -115,8 +54,6 @@ class _SelectionScreenState extends State<SelectionScreen> {
     _razorpay.clear();
     super.dispose();
   }
-
-  // --- Data Fetching Functions (Cascading Logic) ---
 
   Future<void> _fetchClasses() async {
     setState(() => _isLoadingClasses = true);
@@ -208,104 +145,58 @@ class _SelectionScreenState extends State<SelectionScreen> {
     setState(() => _isLoadingChapters = false);
   }
 
-  // Check karega ki notes purchase kiye hain ya nahi
-  Future<void> _checkIfPurchased() async {
-    // Ab hum class select hote hi check kar sakte hain, chapter tak ka wait nahi karna
-    if (_selectedClass == null) return;
-    setState(() => _isFetchingNotes = true); // Loader dikhane ke liye
-    try {
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(FirebaseAuth.instance.currentUser!.uid)
-          .get();
-
-      if (userDoc.exists && userDoc.data()!.containsKey('purchasedClasses')) {
-        final List purchasedClasses = userDoc.data()!['purchasedClasses'];
-        // Check karo ki selected class ki ID us list mein hai ya nahi
-        setState(() {
-          _hasPurchased = purchasedClasses.contains(_selectedClass!.id);
-        });
-      } else {
-        // Agar 'purchasedClasses' field hi nahi hai, matlab kuch nahi khareeda
-        setState(() => _hasPurchased = false);
-      }
-    } catch (e) {
-      print("Error checking purchase status: $e");
-      setState(() => _hasPurchased = false);
-    } finally {
-      // Chapter select hone par bhi loader band karna hai
-      if (mounted) setState(() => _isFetchingNotes = false);
-    }
-  }
-
-
   void _startPayment() async {
     if (_razorpayKeyId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Payment key load nahi hui. Please provide a key in the code.")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              "Payment key not configured.")));
       return;
     }
 
-    setState(() => _isFetchingNotes = true);
-
     var options = {
       'key': _razorpayKeyId,
-      'amount': 5000, // 50 INR in paise
+      'amount': 5000, // Amount in paise (e.g., 5000 for ₹50)
       'name': 'Course Application',
-      'description': 'Notes for ${_selectedChapter!.name}',
+      'description': 'Unlock notes for ${_selectedClass!.name}',
       'prefill': {'email': FirebaseAuth.instance.currentUser?.email ?? ''}
     };
     try {
       _razorpay.open(options);
     } catch (e) {
       print("Error opening Razorpay checkout: $e");
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Could not start payment. Please try again.")));
-    } finally {
-      if (mounted) setState(() => _isFetchingNotes = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("Could not start payment. Please try again.")));
     }
   }
+
   void _handlePaymentSuccess(PaymentSuccessResponse response) async {
     print("Payment Successful: ${response.paymentId}");
-    // Demo ke liye, hum direct Firestore mein user ko access de rahe hain.
-    // Production mein, yeh approach insecure hai. (REMINDER: Use backend)
     try {
       final userRef = FirebaseFirestore.instance
           .collection('users')
           .doc(FirebaseAuth.instance.currentUser!.uid);
 
-      // MODIFIED: Ab hum 'purchasedClasses' array mein CLASS ID add karenge
-      await userRef.set({ // .set with merge: true is safer, it creates doc if not exists
+      await userRef.set({
         'purchasedClasses': FieldValue.arrayUnion([_selectedClass!.id]),
       }, SetOptions(merge: true));
 
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Payment successful! Class Unlocked.")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text("Payment successful! Class Unlocked."),
+        backgroundColor: Colors.green,
+      ));
       setState(() => _hasPurchased = true);
-
-      // Ab notes screen par navigate karenge
-      final notes = await _databaseService.getNotes(
-        classId: _selectedClass!.id,
-        subjectId: _selectedSubject!.id,
-        patternId: _selectedPattern!.id,
-        chapterId: _selectedChapter!.id,
-      );
-      if (mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => NotesDisplayScreen(notes: notes),
-          ),
-        );
-      }
+      _navigateToNotes();
     } catch (e) {
       print("Error updating user document: $e");
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("Error granting access.")));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Error granting access.")));
     }
   }
 
   void _handlePaymentError(PaymentFailureResponse response) {
     print("Payment Error: ${response.code} - ${response.message}");
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Payment failed: ${response.message}")));
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Payment failed: ${response.message}")));
   }
 
   void _handleExternalWallet(ExternalWalletResponse response) {
@@ -313,35 +204,62 @@ class _SelectionScreenState extends State<SelectionScreen> {
   }
 
   void _getNotes() async {
-    if (_hasPurchased) {
-      setState(() => _isFetchingNotes = true);
-      final notes = await _databaseService.getNotes(
-        classId: _selectedClass!.id,
-        subjectId: _selectedSubject!.id,
-        patternId: _selectedPattern!.id,
-        chapterId: _selectedChapter!.id,
-      );
+    setState(() => _isFetchingNotes = true);
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || _selectedClass == null || _selectedChapter == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please make a complete selection.")));
       setState(() => _isFetchingNotes = false);
-      if (mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => NotesDisplayScreen(notes: notes),
-          ),
-        );
+      return;
+    }
+
+    try {
+      final userDoc = await _databaseService.getUserData(user.uid);
+      final userData = userDoc.data() as Map<String, dynamic>?;
+
+      final purchasedClasses = (userData?['purchasedClasses'] as List<dynamic>?) ?? [];
+      _freePdfViewCount = userData?['freePdfViewCount'] ?? 0;
+      _hasPurchased = purchasedClasses.contains(_selectedClass!.id);
+
+      if (_hasPurchased) {
+        _navigateToNotes();
+      } else if (_freePdfViewCount < 5) {
+        await _databaseService.incrementPdfViewCount(user.uid);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Free view used. ${4 - _freePdfViewCount} remaining.'),
+          backgroundColor: Colors.blueAccent,
+        ));
+        _navigateToNotes();
+      } else {
+        _startPayment();
       }
-    } else {
-      _startPayment();
+    } catch (e) {
+      print("Error in _getNotes: $e");
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Something went wrong. Please try again.")));
+    } finally {
+      if (mounted) setState(() => _isFetchingNotes = false);
+    }
+  }
+
+  void _navigateToNotes() async {
+    final notes = await _databaseService.getNotes(
+      classId: _selectedClass!.id,
+      subjectId: _selectedSubject!.id,
+      patternId: _selectedPattern!.id,
+      chapterId: _selectedChapter!.id,
+    );
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => NotesDisplayScreen(notes: notes),
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    bool allOptionsSelected = _selectedClass != null &&
-        _selectedPattern != null &&
-        _selectedSubject != null &&
-        _selectedChapter != null;
-
     return Scaffold(
       appBar: AppBar(
         title: Text('📚 Select Your Notes', style: GoogleFonts.poppins()),
@@ -349,97 +267,132 @@ class _SelectionScreenState extends State<SelectionScreen> {
         foregroundColor: Colors.white,
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildDropdown<ClassModel>(
-              label: 'Select Class',
-              value: _selectedClass,
-              items: _classes,
-              onChanged: (value) {
-                setState(() => _selectedClass = value);
-                if (value != null) {
-                  _fetchPatterns(value.id);
-                }
-              },
-              isLoading: _isLoadingClasses,
-              itemAsString: (ClassModel c) => c.name,
-            ),
-            const SizedBox(height: 20.0),
-            _buildDropdown<PatternModel>(
-              label: 'Select Pattern',
-              value: _selectedPattern,
-              items: _patterns,
-              onChanged: (value) {
-                setState(() => _selectedPattern = value);
-                if (_selectedClass != null && value != null) {
-                  _fetchSubjects(_selectedClass!.id, value.id);
-                }
-              },
-              isLoading: _isLoadingPatterns,
-              itemAsString: (PatternModel p) => p.name,
-              isEnabled: _selectedClass != null,
-            ),
-            const SizedBox(height: 20.0),
-            _buildDropdown<SubjectModel>(
-              label: 'Select Subject',
-              value: _selectedSubject,
-              items: _subjects,
-              onChanged: (value) {
-                setState(() => _selectedSubject = value);
-                if (_selectedClass != null &&
-                    _selectedPattern != null &&
-                    value != null) {
-                  _fetchChapters(
-                      _selectedClass!.id, _selectedPattern!.id, value.id);
-                }
-              },
-              isLoading: _isLoadingSubjects,
-              itemAsString: (SubjectModel s) => s.name,
-              isEnabled: _selectedPattern != null,
-            ),
-            const SizedBox(height: 20.0),
-            _buildDropdown<ChapterModel>(
-              label: 'Select Chapter',
-              value: _selectedChapter,
-              items: _chapters,
-              onChanged: (value) {
-                setState(() => _selectedChapter = value);
-                if (value != null) {
-                  _checkIfPurchased();
-                }
-              },
-              isLoading: _isLoadingChapters,
-              itemAsString: (ChapterModel c) => c.name,
-              isEnabled: _selectedSubject != null,
-            ),
-            const SizedBox(height: 40.0),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor:
-                allOptionsSelected ? Colors.green : Colors.grey,
-                padding: const EdgeInsets.symmetric(vertical: 16.0),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.0),
-                ),
+      body: Theme(
+        data: ThemeData(
+          colorScheme: ColorScheme.light(primary: Colors.deepPurple),
+        ),
+        child: Stepper(
+          type: StepperType.vertical,
+          currentStep: _currentStep,
+          onStepContinue: () {
+            if (_currentStep < 3) {
+              setState(() => _currentStep += 1);
+            } else {
+              _getNotes();
+            }
+          },
+          onStepCancel: () {
+            if (_currentStep > 0) {
+              setState(() => _currentStep -= 1);
+            }
+          },
+          steps: [
+            Step(
+              title: const Text('Class'),
+              content: _buildDropdown<ClassModel>(
+                label: 'Select Class',
+                value: _selectedClass,
+                items: _classes,
+                onChanged: (value) {
+                  setState(() => _selectedClass = value);
+                  if (value != null) {
+                    _fetchPatterns(value.id);
+                  }
+                },
+                isLoading: _isLoadingClasses,
+                itemAsString: (ClassModel c) => c.name,
               ),
-              onPressed: allOptionsSelected ? _getNotes : null,
-              child: _isFetchingNotes
-                  ? const CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              )
-                  : Text(
-                // MODIFIED TEXT: Text ab class purchase ke hisaab se dikhega
-                _hasPurchased ? 'View Notes' : 'Unlock Class for ₹50',
-                style: GoogleFonts.poppins(
-                    fontSize: 18, color: Colors.white),
+              isActive: _currentStep >= 0,
+              state: _selectedClass != null ? StepState.complete : StepState.indexed,
+            ),
+            Step(
+              title: const Text('Pattern'),
+              content: _buildDropdown<PatternModel>(
+                label: 'Select Pattern',
+                value: _selectedPattern,
+                items: _patterns,
+                onChanged: (value) {
+                  setState(() => _selectedPattern = value);
+                  if (_selectedClass != null && value != null) {
+                    _fetchSubjects(_selectedClass!.id, value.id);
+                  }
+                },
+                isLoading: _isLoadingPatterns,
+                itemAsString: (PatternModel p) => p.name,
+                isEnabled: _selectedClass != null,
               ),
+              isActive: _currentStep >= 1,
+              state: _selectedPattern != null ? StepState.complete : StepState.indexed,
+            ),
+            Step(
+              title: const Text('Subject'),
+              content: _buildDropdown<SubjectModel>(
+                label: 'Select Subject',
+                value: _selectedSubject,
+                items: _subjects,
+                onChanged: (value) {
+                  setState(() => _selectedSubject = value);
+                  if (_selectedClass != null &&
+                      _selectedPattern != null &&
+                      value != null) {
+                    _fetchChapters(
+                        _selectedClass!.id, _selectedPattern!.id, value.id);
+                  }
+                },
+                isLoading: _isLoadingSubjects,
+                itemAsString: (SubjectModel s) => s.name,
+                isEnabled: _selectedPattern != null,
+              ),
+              isActive: _currentStep >= 2,
+              state: _selectedSubject != null ? StepState.complete : StepState.indexed,
+            ),
+            Step(
+              title: const Text('Chapter'),
+              content: _buildDropdown<ChapterModel>(
+                label: 'Select Chapter',
+                value: _selectedChapter,
+                items: _chapters,
+                onChanged: (value) {
+                  setState(() {
+                    _selectedChapter = value;
+                    _hasPurchased = false; // Reset purchase status on new chapter selection
+                  });
+                },
+                isLoading: _isLoadingChapters,
+                itemAsString: (ChapterModel c) => c.name,
+                isEnabled: _selectedSubject != null,
+              ),
+              isActive: _currentStep >= 3,
+              state: _selectedChapter != null ? StepState.complete : StepState.indexed,
             ),
           ],
         ),
       ),
+      bottomNavigationBar: _selectedChapter != null
+          ? Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: ElevatedButton.icon(
+          icon: Icon(_hasPurchased ? Icons.visibility : Icons.lock_open),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _hasPurchased ? Colors.green : Colors.orange,
+            padding: const EdgeInsets.symmetric(vertical: 16.0),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12.0),
+            ),
+          ),
+          onPressed: _getNotes,
+          label: _isFetchingNotes
+              ? const CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          )
+              : Text(
+            'Get Notes', // Button text ko simple rakha hai
+            style: GoogleFonts.poppins(
+                fontSize: 18, color: Colors.white),
+          ),
+        ),
+      )
+          : null,
     );
   }
 

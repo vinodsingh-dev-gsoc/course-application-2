@@ -1,3 +1,5 @@
+// lib/services/auth_service.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -7,7 +9,6 @@ class AuthService {
   final GoogleSignIn _googleSignIn = GoogleSignIn();
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // YEH RAHA FIX! 👇
   User? currentUser() {
     return _auth.currentUser;
   }
@@ -24,6 +25,7 @@ class AuthService {
         'photoURL': user.photoURL ?? '',
         'createdAt': FieldValue.serverTimestamp(),
         'role': 'user',
+        'freePdfViewCount': 0, // ✨ YEH RAHA APNA NAYA FEATURE!
       });
     }
   }

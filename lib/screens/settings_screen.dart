@@ -6,7 +6,7 @@ import 'package:iconly/iconly.dart';
 import 'package:course_application/screens/change_password_screen.dart';
 // Edit Profile screen ko import karlo taaki navigate kar sakein
 import 'edit_profile_screen.dart';
-import 'home/legal_document_screen.dart';
+import 'legal_document_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});

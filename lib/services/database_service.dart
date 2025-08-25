@@ -161,4 +161,14 @@ class DatabaseService {
     }
     return false;
   }
+  Future<DocumentSnapshot> getUserData(String uid) async {
+    return _db.collection('users').doc(uid).get();
+  }
+
+  Future<void> incrementPdfViewCount(String uid) async {
+    return _db.collection('users').doc(uid).update({
+      'freePdfViewCount': FieldValue.increment(1),
+    });
+  }
+
 }
