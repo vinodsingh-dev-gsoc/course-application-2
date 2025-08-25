@@ -1,3 +1,5 @@
+// lib/screens/selection_screen.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:course_application/models/selection_models.dart';
 import 'package:course_application/screens/notes_display_screen.dart';
@@ -17,6 +19,8 @@ class SelectionScreen extends StatefulWidget {
 
 class _SelectionScreenState extends State<SelectionScreen> {
   int _currentStep = 0;
+
+  // Models and selected items
   List<ClassModel> _classes = [];
   List<PatternModel> _patterns = [];
   List<SubjectModel> _subjects = [];
@@ -26,23 +30,33 @@ class _SelectionScreenState extends State<SelectionScreen> {
   PatternModel? _selectedPattern;
   SubjectModel? _selectedSubject;
   ChapterModel? _selectedChapter;
+  List<QueryDocumentSnapshot> _fetchedNotes = [];
 
+  // Loading states
   bool _isLoadingClasses = true;
   bool _isLoadingPatterns = false;
   bool _isLoadingSubjects = false;
   bool _isLoadingChapters = false;
-  bool _isFetchingNotes = false;
-  bool _hasPurchased = false;
-  int _freePdfViewCount = 0; // Free view counter
+  bool _isProcessing = false;
+
+  // Payment and Access states
+  bool _hasPurchasedChapter = false;
+  double _notesTotalAmount = 0.0;
+  int _freePdfViewCount = 0;
 
   final DatabaseService _databaseService = DatabaseService();
   late Razorpay _razorpay;
-  final String _razorpayKeyId = "rzp_test_R63e5HcDWJPQmZ"; // Replace with your key
+  final String _razorpayKeyId = "rzp_test_R63e5HcDWJPQmZ"; // Aapki Key
 
   @override
   void initState() {
     super.initState();
     _fetchClasses();
+    _initializeRazorpay();
+    _fetchInitialUserData();
+  }
+
+  void _initializeRazorpay() {
     _razorpay = Razorpay();
     _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
     _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
@@ -55,209 +69,197 @@ class _SelectionScreenState extends State<SelectionScreen> {
     super.dispose();
   }
 
+  // --- Data Fetching Logic ---
   Future<void> _fetchClasses() async {
     setState(() => _isLoadingClasses = true);
-    try {
-      final snapshot =
-      await FirebaseFirestore.instance.collection('classes').get();
-      _classes = snapshot.docs
-          .map((doc) => ClassModel(id: doc.id, name: doc.data()['name']))
-          .toList();
-    } catch (e) {
-      print("Error fetching classes: $e");
-    }
+    final snapshot = await FirebaseFirestore.instance.collection('classes').get();
+    _classes = snapshot.docs
+        .map((doc) => ClassModel(id: doc.id, name: doc.data()['name']))
+        .toList();
     setState(() => _isLoadingClasses = false);
   }
 
   Future<void> _fetchPatterns(String classId) async {
     setState(() {
       _isLoadingPatterns = true;
-      _patterns = [];
-      _subjects = [];
-      _chapters = [];
-      _selectedPattern = null;
-      _selectedSubject = null;
-      _selectedChapter = null;
+      _resetSelections(from: 'pattern');
     });
-    try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('classes')
-          .doc(classId)
-          .collection('patterns')
-          .get();
-      _patterns = snapshot.docs
-          .map((doc) => PatternModel(id: doc.id, name: doc.data()['name']))
-          .toList();
-    } catch (e) {
-      print("Error fetching patterns: $e");
-    }
+    final snapshot = await FirebaseFirestore.instance.collection('classes').doc(classId).collection('patterns').get();
+    _patterns = snapshot.docs.map((doc) => PatternModel(id: doc.id, name: doc.data()['name'])).toList();
     setState(() => _isLoadingPatterns = false);
   }
 
   Future<void> _fetchSubjects(String classId, String patternId) async {
     setState(() {
       _isLoadingSubjects = true;
-      _subjects = [];
-      _chapters = [];
-      _selectedSubject = null;
-      _selectedChapter = null;
+      _resetSelections(from: 'subject');
     });
-    try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('classes')
-          .doc(classId)
-          .collection('patterns')
-          .doc(patternId)
-          .collection('subjects')
-          .get();
-      _subjects = snapshot.docs
-          .map((doc) => SubjectModel(id: doc.id, name: doc.data()['name']))
-          .toList();
-    } catch (e) {
-      print("Error fetching subjects: $e");
-    }
+    final snapshot = await FirebaseFirestore.instance.collection('classes').doc(classId).collection('patterns').doc(patternId).collection('subjects').get();
+    _subjects = snapshot.docs.map((doc) => SubjectModel(id: doc.id, name: doc.data()['name'])).toList();
     setState(() => _isLoadingSubjects = false);
   }
 
-  Future<void> _fetchChapters(
-      String classId, String patternId, String subjectId) async {
+  Future<void> _fetchChapters(String classId, String patternId, String subjectId) async {
     setState(() {
       _isLoadingChapters = true;
-      _chapters = [];
-      _selectedChapter = null;
+      _resetSelections(from: 'chapter');
     });
-    try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('classes')
-          .doc(classId)
-          .collection('patterns')
-          .doc(patternId)
-          .collection('subjects')
-          .doc(subjectId)
-          .collection('chapters')
-          .get();
-      _chapters = snapshot.docs
-          .map((doc) => ChapterModel(id: doc.id, name: doc.data()['name']))
-          .toList();
-    } catch (e) {
-      print("Error fetching chapters: $e");
-    }
+    final snapshot = await FirebaseFirestore.instance.collection('classes').doc(classId).collection('patterns').doc(patternId).collection('subjects').doc(subjectId).collection('chapters').get();
+    _chapters = snapshot.docs.map((doc) => ChapterModel(id: doc.id, name: doc.data()['name'])).toList();
     setState(() => _isLoadingChapters = false);
   }
 
-  void _startPayment() async {
-    if (_razorpayKeyId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text(
-              "Payment key not configured.")));
+  Future<void> _fetchInitialUserData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final userDoc = await _databaseService.getUserData(user.uid);
+    if (userDoc.exists) {
+      final userData = userDoc.data() as Map<String, dynamic>;
+      setState(() {
+        _freePdfViewCount = userData['freePdfViewCount'] ?? 0;
+      });
+    }
+  }
+
+  Future<void> _onChapterSelected(ChapterModel? chapter) async {
+    if (chapter == null) {
+      setState(() => _selectedChapter = null);
+      return;
+    };
+    setState(() {
+      _selectedChapter = chapter;
+      _isProcessing = true;
+      _hasPurchasedChapter = false;
+      _notesTotalAmount = 0.0;
+    });
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final hasAccess = await _databaseService.hasAccessToChapter(chapter.id);
+    if (hasAccess) {
+      setState(() {
+        _hasPurchasedChapter = true;
+        _isProcessing = false;
+      });
       return;
     }
 
+    _fetchedNotes = await _databaseService.getNotes(
+      classId: _selectedClass!.id,
+      subjectId: _selectedSubject!.id,
+      patternId: _selectedPattern!.id,
+      chapterId: chapter.id,
+    );
+
+    double total = 0;
+    for (var doc in _fetchedNotes) {
+      final data = doc.data() as Map<String, dynamic>;
+      total += (data['amount'] ?? 0.0);
+    }
+
+    setState(() {
+      _notesTotalAmount = total;
+      _isProcessing = false;
+    });
+  }
+
+  // --- Payment Logic ---
+  void _startPayment() {
+    final user = FirebaseAuth.instance.currentUser;
     var options = {
       'key': _razorpayKeyId,
-      'amount': 5000, // Amount in paise (e.g., 5000 for ₹50)
-      'name': 'Course Application',
-      'description': 'Unlock notes for ${_selectedClass!.name}',
-      'prefill': {'email': FirebaseAuth.instance.currentUser?.email ?? ''}
+      'amount': (_notesTotalAmount * 100).toInt(),
+      'name': 'Padhai Pedia',
+      'description': 'Notes for ${_selectedChapter!.name}',
+      'prefill': {'email': user?.email ?? ''},
     };
     try {
       _razorpay.open(options);
     } catch (e) {
-      print("Error opening Razorpay checkout: $e");
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text("Could not start payment. Please try again.")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Payment error. Please try again.")));
+      setState(() => _isProcessing = false);
     }
   }
 
   void _handlePaymentSuccess(PaymentSuccessResponse response) async {
-    print("Payment Successful: ${response.paymentId}");
-    try {
-      final userRef = FirebaseFirestore.instance
-          .collection('users')
-          .doc(FirebaseAuth.instance.currentUser!.uid);
-
-      await userRef.set({
-        'purchasedClasses': FieldValue.arrayUnion([_selectedClass!.id]),
-      }, SetOptions(merge: true));
-
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text("Payment successful! Class Unlocked."),
-        backgroundColor: Colors.green,
-      ));
-      setState(() => _hasPurchased = true);
-      _navigateToNotes();
-    } catch (e) {
-      print("Error updating user document: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Error granting access.")));
-    }
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    await _databaseService.grantChapterAccess(user.uid, _selectedChapter!.id);
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text("Payment successful! Chapter Unlocked."),
+      backgroundColor: Colors.green,
+    ));
+    setState(() => _hasPurchasedChapter = true);
+    _navigateToNotesScreen();
   }
 
   void _handlePaymentError(PaymentFailureResponse response) {
-    print("Payment Error: ${response.code} - ${response.message}");
-    ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Payment failed: ${response.message}")));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Payment failed: ${response.message}")));
+    setState(() => _isProcessing = false);
   }
 
-  void _handleExternalWallet(ExternalWalletResponse response) {
-    print("External Wallet: ${response.walletName}");
-  }
+  void _handleExternalWallet(ExternalWalletResponse response) { /* Handle external wallet */ }
 
-  void _getNotes() async {
-    setState(() => _isFetchingNotes = true);
+  // --- UI Logic & Navigation ---
+  void _handleGetNotes() async {
+    if(_selectedChapter == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please select a chapter first.")));
+      return;
+    }
+    setState(() => _isProcessing = true);
 
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null || _selectedClass == null || _selectedChapter == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please make a complete selection.")));
-      setState(() => _isFetchingNotes = false);
+    if (_hasPurchasedChapter || _notesTotalAmount == 0.0) {
+      _navigateToNotesScreen();
       return;
     }
 
-    try {
-      final userDoc = await _databaseService.getUserData(user.uid);
-      final userData = userDoc.data() as Map<String, dynamic>?;
-
-      final purchasedClasses = (userData?['purchasedClasses'] as List<dynamic>?) ?? [];
-      _freePdfViewCount = userData?['freePdfViewCount'] ?? 0;
-      _hasPurchased = purchasedClasses.contains(_selectedClass!.id);
-
-      if (_hasPurchased) {
-        _navigateToNotes();
-      } else if (_freePdfViewCount < 5) {
-        await _databaseService.incrementPdfViewCount(user.uid);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Free view used. ${4 - _freePdfViewCount} remaining.'),
-          backgroundColor: Colors.blueAccent,
-        ));
-        _navigateToNotes();
-      } else {
-        _startPayment();
-      }
-    } catch (e) {
-      print("Error in _getNotes: $e");
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Something went wrong. Please try again.")));
-    } finally {
-      if (mounted) setState(() => _isFetchingNotes = false);
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && _freePdfViewCount < 5) {
+      await _databaseService.incrementPdfViewCount(user.uid);
+      setState(() => _freePdfViewCount++);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Free view used. ${5 - _freePdfViewCount} remaining.'),
+        backgroundColor: Colors.blueAccent,
+      ));
+      _navigateToNotesScreen();
+      return;
     }
+    _startPayment();
   }
 
-  void _navigateToNotes() async {
-    final notes = await _databaseService.getNotes(
-      classId: _selectedClass!.id,
-      subjectId: _selectedSubject!.id,
-      patternId: _selectedPattern!.id,
-      chapterId: _selectedChapter!.id,
-    );
-    if (mounted) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => NotesDisplayScreen(notes: notes),
-        ),
+  void _navigateToNotesScreen() async {
+    if (_fetchedNotes.isEmpty) {
+      _fetchedNotes = await _databaseService.getNotes(
+        classId: _selectedClass!.id,
+        subjectId: _selectedSubject!.id,
+        patternId: _selectedPattern!.id,
+        chapterId: _selectedChapter!.id,
       );
     }
+    if (mounted) {
+      Navigator.push(context, MaterialPageRoute(builder: (context) => NotesDisplayScreen(notes: _fetchedNotes)));
+    }
+    setState(() => _isProcessing = false);
   }
 
+  void _resetSelections({required String from}) {
+    if (from == 'pattern') {
+      _patterns = []; _subjects = []; _chapters = [];
+      _selectedPattern = null; _selectedSubject = null; _selectedChapter = null;
+    } else if (from == 'subject') {
+      _subjects = []; _chapters = [];
+      _selectedSubject = null; _selectedChapter = null;
+    } else if (from == 'chapter') {
+      _chapters = [];
+      _selectedChapter = null;
+    }
+    _fetchedNotes = [];
+    _notesTotalAmount = 0.0;
+    _hasPurchasedChapter = false;
+  }
+
+  // --- Widgets ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -268,17 +270,16 @@ class _SelectionScreenState extends State<SelectionScreen> {
         centerTitle: true,
       ),
       body: Theme(
-        data: ThemeData(
-          colorScheme: ColorScheme.light(primary: Colors.deepPurple),
-        ),
+        data: ThemeData(colorScheme: ColorScheme.light(primary: Colors.deepPurple)),
         child: Stepper(
           type: StepperType.vertical,
           currentStep: _currentStep,
           onStepContinue: () {
-            if (_currentStep < 3) {
+            final isLastStep = _currentStep == 3;
+            if (isLastStep) {
+              _handleGetNotes();
+            } else if (_isStepComplete(_currentStep)) {
               setState(() => _currentStep += 1);
-            } else {
-              _getNotes();
             }
           },
           onStepCancel: () {
@@ -286,124 +287,130 @@ class _SelectionScreenState extends State<SelectionScreen> {
               setState(() => _currentStep -= 1);
             }
           },
+          controlsBuilder: (context, details) {
+            final isLastStep = _currentStep == 3;
+            return Padding(
+              padding: const EdgeInsets.only(top: 16.0),
+              child: _isProcessing && isLastStep
+                  ? Center(child: CircularProgressIndicator())
+                  : Row(
+                children: [
+                  if(isLastStep)
+                    _buildFinalButton()
+                  else
+                    ElevatedButton(
+                      onPressed: details.onStepContinue,
+                      child: const Text('Continue'),
+                    ),
+                  const SizedBox(width: 8),
+                  if (_currentStep > 0)
+                    TextButton(
+                      onPressed: details.onStepCancel,
+                      child: const Text('Back'),
+                    ),
+                ],
+              ),
+            );
+          },
           steps: [
-            Step(
-              title: const Text('Class'),
+            _buildStep(
+              title: 'Class',
+              step: 0,
               content: _buildDropdown<ClassModel>(
                 label: 'Select Class',
                 value: _selectedClass,
                 items: _classes,
                 onChanged: (value) {
                   setState(() => _selectedClass = value);
-                  if (value != null) {
-                    _fetchPatterns(value.id);
-                  }
+                  if (value != null) _fetchPatterns(value.id);
                 },
                 isLoading: _isLoadingClasses,
-                itemAsString: (ClassModel c) => c.name,
+                itemAsString: (c) => c.name,
               ),
-              isActive: _currentStep >= 0,
-              state: _selectedClass != null ? StepState.complete : StepState.indexed,
             ),
-            Step(
-              title: const Text('Pattern'),
+            _buildStep(
+              title: 'Pattern',
+              step: 1,
               content: _buildDropdown<PatternModel>(
                 label: 'Select Pattern',
                 value: _selectedPattern,
                 items: _patterns,
                 onChanged: (value) {
                   setState(() => _selectedPattern = value);
-                  if (_selectedClass != null && value != null) {
-                    _fetchSubjects(_selectedClass!.id, value.id);
-                  }
+                  if (_selectedClass != null && value != null) _fetchSubjects(_selectedClass!.id, value.id);
                 },
                 isLoading: _isLoadingPatterns,
-                itemAsString: (PatternModel p) => p.name,
+                itemAsString: (p) => p.name,
                 isEnabled: _selectedClass != null,
               ),
-              isActive: _currentStep >= 1,
-              state: _selectedPattern != null ? StepState.complete : StepState.indexed,
             ),
-            Step(
-              title: const Text('Subject'),
+            _buildStep(
+              title: 'Subject',
+              step: 2,
               content: _buildDropdown<SubjectModel>(
                 label: 'Select Subject',
                 value: _selectedSubject,
                 items: _subjects,
                 onChanged: (value) {
                   setState(() => _selectedSubject = value);
-                  if (_selectedClass != null &&
-                      _selectedPattern != null &&
-                      value != null) {
-                    _fetchChapters(
-                        _selectedClass!.id, _selectedPattern!.id, value.id);
-                  }
+                  if (_selectedClass != null && _selectedPattern != null && value != null) _fetchChapters(_selectedClass!.id, _selectedPattern!.id, value.id);
                 },
                 isLoading: _isLoadingSubjects,
-                itemAsString: (SubjectModel s) => s.name,
+                itemAsString: (s) => s.name,
                 isEnabled: _selectedPattern != null,
               ),
-              isActive: _currentStep >= 2,
-              state: _selectedSubject != null ? StepState.complete : StepState.indexed,
             ),
-            Step(
-              title: const Text('Chapter'),
-              content: _buildDropdown<ChapterModel>(
-                label: 'Select Chapter',
-                value: _selectedChapter,
-                items: _chapters,
-                onChanged: (value) {
-                  setState(() {
-                    _selectedChapter = value;
-                    _hasPurchased = false; // Reset purchase status on new chapter selection
-                  });
-                },
-                isLoading: _isLoadingChapters,
-                itemAsString: (ChapterModel c) => c.name,
-                isEnabled: _selectedSubject != null,
+            _buildStep(
+              title: 'Chapter',
+              step: 3,
+              content: Column(
+                children: [
+                  _buildDropdown<ChapterModel>(
+                    label: 'Select Chapter',
+                    value: _selectedChapter,
+                    items: _chapters,
+                    onChanged: _onChapterSelected,
+                    isLoading: _isLoadingChapters,
+                    itemAsString: (c) => c.name,
+                    isEnabled: _selectedSubject != null,
+                  ),
+                  if (_selectedChapter != null && !_isLoadingChapters && _chapters.isNotEmpty && _fetchedNotes.isEmpty && !_isProcessing && _notesTotalAmount == 0)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 20.0),
+                      child: Lottie.asset('assets/animations/empty_box.json', height: 150),
+                    ),
+                ],
               ),
-              isActive: _currentStep >= 3,
-              state: _selectedChapter != null ? StepState.complete : StepState.indexed,
             ),
           ],
         ),
       ),
-      bottomNavigationBar: _selectedChapter != null
-          ? Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ElevatedButton.icon(
-          icon: Icon(_hasPurchased ? Icons.visibility : Icons.lock_open),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: _hasPurchased ? Colors.green : Colors.orange,
-            padding: const EdgeInsets.symmetric(vertical: 16.0),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12.0),
-            ),
-          ),
-          onPressed: _getNotes,
-          label: _isFetchingNotes
-              ? const CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-          )
-              : Text(
-            'Get Notes', // Button text ko simple rakha hai
-            style: GoogleFonts.poppins(
-                fontSize: 18, color: Colors.white),
-          ),
-        ),
-      )
-          : null,
     );
   }
 
+  Step _buildStep({required String title, required int step, required Widget content}) {
+    return Step(
+      title: Text(title),
+      content: content,
+      isActive: _currentStep >= step,
+      state: _isStepComplete(step) ? StepState.complete : StepState.indexed,
+    );
+  }
+
+  bool _isStepComplete(int step){
+    switch(step){
+      case 0: return _selectedClass != null;
+      case 1: return _selectedPattern != null;
+      case 2: return _selectedSubject != null;
+      case 3: return _selectedChapter != null;
+      default: return false;
+    }
+  }
+
   Widget _buildDropdown<T>({
-    required String label,
-    required T? value,
-    required List<T> items,
-    required void Function(T?) onChanged,
-    required String Function(T) itemAsString,
-    bool isLoading = false,
-    bool isEnabled = true,
+    required String label, required T? value, required List<T> items,
+    required void Function(T?) onChanged, required String Function(T) itemAsString,
+    bool isLoading = false, bool isEnabled = true,
   }) {
     return DropdownButtonFormField<T>(
       decoration: InputDecoration(
@@ -411,21 +418,45 @@ class _SelectionScreenState extends State<SelectionScreen> {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
         filled: !isEnabled,
         fillColor: Colors.grey[200],
-        prefixIcon: isLoading
-            ? Transform.scale(
-            scale: 0.5, child: const CircularProgressIndicator())
-            : null,
+        prefixIcon: isLoading ? Transform.scale(scale: 0.5, child: const CircularProgressIndicator()) : null,
       ),
-      value: value,
-      isExpanded: true,
-      items: items.map((T item) {
-        return DropdownMenuItem<T>(
-          value: item,
-          child: Text(itemAsString(item), style: GoogleFonts.poppins()),
-        );
-      }).toList(),
+      value: value, isExpanded: true,
+      items: items.map((T item) => DropdownMenuItem<T>(value: item, child: Text(itemAsString(item)))).toList(),
       onChanged: isEnabled ? onChanged : null,
-      validator: (value) => value == null ? 'Please select an option' : null,
+    );
+  }
+
+  Widget _buildFinalButton(){
+    if (_selectedChapter == null) {
+      return ElevatedButton(onPressed: null, child: Text('Select Chapter'));
+    }
+
+    String text;
+    Color color;
+    IconData icon;
+
+    if (_hasPurchasedChapter) {
+      text = 'View Notes';
+      color = Colors.green;
+      icon = Icons.visibility;
+    } else if (_notesTotalAmount > 0) {
+      text = 'Unlock for ₹${_notesTotalAmount.toStringAsFixed(0)}';
+      color = Colors.orange.shade700;
+      icon = Icons.lock_open;
+    } else {
+      text = 'View Notes (Free)';
+      color = Colors.blue;
+      icon = Icons.visibility;
+    }
+
+    return ElevatedButton.icon(
+      icon: Icon(icon),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+      ),
+      onPressed: _handleGetNotes,
+      label: Text(text),
     );
   }
 }

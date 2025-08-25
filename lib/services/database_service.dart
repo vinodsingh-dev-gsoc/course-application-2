@@ -5,43 +5,38 @@ class DatabaseService {
   final String? uid;
 
   DatabaseService({this.uid});
+
   Future<DocumentSnapshot> getUser(String uid) {
     return _db.collection('users').doc(uid).get();
   }
+
   Stream<DocumentSnapshot> getUserStream(String uid) {
     return _db.collection('users').doc(uid).snapshots();
   }
 
-  // ++ YEH FUNCTION ADD KARO ++
-  // Yeh user ke recent notes ki ek live stream dega
   Stream<QuerySnapshot> getRecentNotesStream(String uid) {
     return _db
         .collection('users')
         .doc(uid)
         .collection('recentNotes')
         .orderBy('lastViewed', descending: true)
-        .limit(5) // Sirf last 5 recent notes dikhayenge
+        .limit(5)
         .snapshots();
   }
 
-  // ++ AUR YEH BHI ADD KARO ++
-  // Yeh function note ko user ke recents mein add/update karega
   Future<void> addNoteToRecents(String uid, Map<String, dynamic> noteData) {
-    // Hum note ki document ID ko hi recent note ki ID banayenge
-    // Isse duplicate entries nahi hongi, sirf timestamp update hoga
     final noteId = noteData['id'];
-
     return _db
         .collection('users')
         .doc(uid)
         .collection('recentNotes')
         .doc(noteId)
         .set({
-      ...noteData, // Note ka saara data (title, url, etc.)
-      'lastViewed': FieldValue.serverTimestamp(), // Aur abhi ka time
+      ...noteData,
+      'lastViewed': FieldValue.serverTimestamp(),
     });
   }
-  // ++ AND ADD THIS METHOD ++
+
   Future<void> updateUser(String uid, {String? fullName, String? userClass, String? photoUrl}) {
     Map<String, dynamic> dataToUpdate = {};
     if (fullName != null) dataToUpdate['displayName'] = fullName;
@@ -53,26 +48,28 @@ class DatabaseService {
     }
     return Future.value();
   }
-  // ===== CHANGE 1: YAHAN chapterId ADD KIYA =====
+
   Future<String> addNote({
     required String classId,
     required String subjectId,
-    required String chapterId, // chapterName ki jagah
-    String? chapterName, // Isko bhi rakhenge taaki display aasan ho
+    required String chapterId,
+    String? chapterName,
     required String patternId,
     required String pdfUrl,
     required String fileName,
+    required double amount,
   }) async {
     try {
       await _db.collection('notes').add({
         'classId': classId,
         'subjectId': subjectId,
-        'chapterId': chapterId, // ID ko save kiya
-        'chapterName': chapterName, // Naam ko bhi save kar liya
+        'chapterId': chapterId,
+        'chapterName': chapterName,
         'patternId': patternId,
         'pdfUrl': pdfUrl,
         'fileName': fileName,
         'createdAt': FieldValue.serverTimestamp(),
+        'amount': amount,
       });
       return 'Success';
     } catch (e) {
@@ -128,11 +125,10 @@ class DatabaseService {
     }
   }
 
-  // ===== CHANGE 2: YAHAN chapterId SE QUERY KI =====
   Future<List<QueryDocumentSnapshot>> getNotes({
     required String classId,
     required String subjectId,
-    required String chapterId, // chapterName ki jagah
+    required String chapterId,
     required String patternId,
   }) async {
     try {
@@ -140,7 +136,7 @@ class DatabaseService {
           .collection('notes')
           .where('classId', isEqualTo: classId)
           .where('subjectId', isEqualTo: subjectId)
-          .where('chapterId', isEqualTo: chapterId) // Ab ID se search hoga
+          .where('chapterId', isEqualTo: chapterId)
           .where('patternId', isEqualTo: patternId)
           .get();
 
@@ -151,16 +147,29 @@ class DatabaseService {
     }
   }
 
-  Future<bool> hasAccessToClass(String classId) async {
+  // ✨ --- YEH RAHE NAYE FUNCTIONS --- ✨
+
+  // Function to check if the user has purchased a specific chapter
+  Future<bool> hasAccessToChapter(String chapterId) async {
     if (uid != null) {
       final doc = await _db.collection('users').doc(uid).get();
-      if (doc.exists && doc.data()!.containsKey('purchasedClasses')) {
-        final List purchasedClasses = doc.data()!['purchasedClasses'];
-        return purchasedClasses.contains(classId);
+      if (doc.exists && doc.data()!.containsKey('purchasedChapters')) {
+        final List purchasedChapters = doc.data()!['purchasedChapters'];
+        return purchasedChapters.contains(chapterId);
       }
     }
     return false;
   }
+
+  // Function to add a chapter to the user's purchased list after successful payment
+  Future<void> grantChapterAccess(String userId, String chapterId) {
+    return _db.collection('users').doc(userId).set({
+      'purchasedChapters': FieldValue.arrayUnion([chapterId]),
+    }, SetOptions(merge: true));
+  }
+
+  // --- YAHAN TAK --- ✨
+
   Future<DocumentSnapshot> getUserData(String uid) async {
     return _db.collection('users').doc(uid).get();
   }
@@ -170,5 +179,4 @@ class DatabaseService {
       'freePdfViewCount': FieldValue.increment(1),
     });
   }
-
 }

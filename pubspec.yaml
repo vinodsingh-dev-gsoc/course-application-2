@@ -62,6 +62,8 @@ dependencies:
   lottie: ^3.3.1
   flutter_staggered_animations: ^1.1.1
   flutter_launcher_icons: ^0.14.4
+  nanoid: ^1.0.0
+  rename: ^3.1.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -69,6 +71,7 @@ dev_dependencies:
   # Code ko saaf rakhne ke liye
   flutter_lints: ^4.0.0 # Updated
   # Code ko saaf rakhne ke liye
+
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true

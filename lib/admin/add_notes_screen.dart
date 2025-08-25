@@ -1,7 +1,7 @@
 // lib/admin/add_notes_screen.dart
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:course_application/models/selection_models.dart'; // <<<--- IMPORT MODELS
+import 'package:course_application/models/selection_models.dart';
 import 'package:course_application/services/database_service.dart';
 import 'package:course_application/services/storage_service.dart';
 import 'package:file_picker/file_picker.dart';
@@ -17,6 +17,8 @@ class AddNotesScreen extends StatefulWidget {
 
 class _AddNotesScreenState extends State<AddNotesScreen> {
   final _formKey = GlobalKey<FormState>();
+  final TextEditingController _amountController = TextEditingController();
+
   int _currentStep = 0;
   bool _isLoading = false;
   PlatformFile? _selectedFile;
@@ -43,6 +45,12 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
   void initState() {
     super.initState();
     _fetchClasses();
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchClasses() async {
@@ -127,6 +135,13 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
   void _clearFile() => setState(() => _selectedFile = null);
 
   void _saveNote() async {
+    if (!_formKey.currentState!.validate()) {
+      setState(() {
+        _currentStep = 4;
+      });
+      return;
+    }
+
     if (_selectedFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Please select a file to upload!')));
@@ -138,7 +153,10 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
         'notes/${_selectedClass!.id}/${_selectedPattern!.id}/${_selectedSubject!.id}/${_selectedChapter!.id}/${DateTime.now().millisecondsSinceEpoch}_$fileName';
     final String? downloadUrl =
     await _storageService.uploadFile(destination, _selectedFile!);
+
     if (downloadUrl != null) {
+      final double? amount = double.tryParse(_amountController.text.trim());
+
       await _databaseService.addNote(
         classId: _selectedClass!.id,
         subjectId: _selectedSubject!.id,
@@ -147,6 +165,7 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
         patternId: _selectedPattern!.id,
         pdfUrl: downloadUrl,
         fileName: fileName,
+        amount: amount ?? 0.0,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -161,6 +180,7 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
           _patterns = [];
           _subjects = [];
           _chapters = [];
+          _amountController.clear();
         });
       }
     } else if (mounted) {
@@ -374,6 +394,27 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
                 content: Column(
                   children: [
                     _buildFilePicker(),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _amountController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: "Amount (e.g., 49.00)",
+                        prefixText: "₹",
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter an amount';
+                        }
+                        if (double.tryParse(value) == null) {
+                          return 'Please enter a valid number';
+                        }
+                        return null;
+                      },
+                    ),
                     const SizedBox(height: 24),
                     _isLoading
                         ? const Center(child: CircularProgressIndicator())
