@@ -1,6 +1,5 @@
-// lib/screens/account_screen.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:course_application/screens/referral_screen.dart';
 import 'package:course_application/services/database_service.dart';
 import 'package:course_application/services/auth_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -87,71 +86,72 @@ class _AccountScreenState extends State<AccountScreen> {
         elevation: 0,
         automaticallyImplyLeading: false,
       ),
-      body: SingleChildScrollView(
-        child: Container(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            children: [
-              _buildProfileSection(),
-              const SizedBox(height: 20),
-              _buildMenuCard(),
-              const SizedBox(height: 20),
-              _buildAdminCard(),
-              const SizedBox(height: 10),
-              _buildLogoutCard(),
-            ],
-          ),
-        ),
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: _databaseService.getUserStream(_currentUser!.uid),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError || !snapshot.hasData || !snapshot.data!.exists) {
+            return const Center(child: Text('Could not load profile data.'));
+          }
+
+          final userData = snapshot.data!.data() as Map<String, dynamic>;
+
+          return SingleChildScrollView(
+            child: Container(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                children: [
+                  _buildProfileSection(userData),
+                  const SizedBox(height: 20),
+                  _buildMenuCard(userData),
+                  const SizedBox(height: 20),
+                  _buildAdminCard(),
+                  const SizedBox(height: 10),
+                  _buildLogoutCard(),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildProfileSection() {
-    return StreamBuilder<DocumentSnapshot>(
-      stream: _databaseService.getUserStream(_currentUser!.uid),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError || !snapshot.hasData || !snapshot.data!.exists) {
-          return const Center(child: Text('Could not load profile data.'));
-        }
+  Widget _buildProfileSection(Map<String, dynamic> userData) {
+    final String displayName = userData['displayName'] ?? 'User Name';
+    final String email = _currentUser!.email ?? 'user.email@example.com';
+    final String? photoUrl = userData['photoURL'];
 
-        final userData = snapshot.data!.data() as Map<String, dynamic>;
-        final String displayName = userData['displayName'] ?? 'User Name';
-        final String email = _currentUser!.email ?? 'user.email@example.com';
-        final String? photoUrl = userData['photoURL'];
-
-        return Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
-                spreadRadius: 2,
-                blurRadius: 10,
-              )
-            ],
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 2,
+            blurRadius: 10,
+          )
+        ],
+      ),
+      child: Column(
+        children: [
+          _buildProfileAvatar(photoUrl),
+          const SizedBox(height: 15),
+          Text(
+            displayName,
+            style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.bold),
           ),
-          child: Column(
-            children: [
-              _buildProfileAvatar(photoUrl),
-              const SizedBox(height: 15),
-              Text(
-                displayName,
-                style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                email,
-                style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey[600]),
-              ),
-            ],
+          const SizedBox(height: 5),
+          Text(
+            email,
+            style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey[600]),
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 
@@ -193,7 +193,7 @@ class _AccountScreenState extends State<AccountScreen> {
     );
   }
 
-  Widget _buildMenuCard() {
+  Widget _buildMenuCard(Map<String, dynamic> userData) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
@@ -207,6 +207,22 @@ class _AccountScreenState extends State<AccountScreen> {
             icon: IconlyLight.edit,
             onTap: () {
               Navigator.push(context, MaterialPageRoute(builder: (context) => const EditProfileScreen()));
+            },
+          ),
+          const Divider(indent: 20, endIndent: 20),
+          ProfileMenuTile(
+            title: "Refer & Earn",
+            icon: Icons.card_giftcard_rounded,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ReferralScreen(
+                    referralCode: userData['referralCode'] ?? 'N/A',
+                    walletBalance: (userData['walletBalance'] ?? 0.0).toDouble(),
+                  ),
+                ),
+              );
             },
           ),
           const Divider(indent: 20, endIndent: 20),

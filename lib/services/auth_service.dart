@@ -3,6 +3,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:nanoid/nanoid.dart'; // nanoid package import karo
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -13,11 +14,15 @@ class AuthService {
     return _auth.currentUser;
   }
 
-  Future<void> _createUserInFirestore(User user) async {
+  // ✨ --- YEH FUNCTION UPDATE HUA HAI --- ✨
+  Future<void> _createUserInFirestore(User user, {String? referredByCode}) async {
     final userDoc = _db.collection('users').doc(user.uid);
     final snapshot = await userDoc.get();
 
     if (!snapshot.exists) {
+      // Har naye user ke liye ek unique, chhota referral code generate hoga
+      final String newUserReferralCode = nanoid(8);
+
       await userDoc.set({
         'uid': user.uid,
         'email': user.email,
@@ -25,7 +30,12 @@ class AuthService {
         'photoURL': user.photoURL ?? '',
         'createdAt': FieldValue.serverTimestamp(),
         'role': 'user',
-        'freePdfViewCount': 0, // ✨ YEH RAHA APNA NAYA FEATURE!
+        'freePdfViewCount': 0,
+        // --- NAYE REFERRAL FIELDS ---
+        'referralCode': newUserReferralCode, // User ka apna unique code
+        'referredBy': referredByCode,      // Jisne refer kiya uska code (agar hai toh)
+        'walletBalance': 0.0,              // Shuruaati wallet balance
+        'firstPurchaseMade': false,        // Pehli purchase ka status
       });
     }
   }
@@ -49,7 +59,8 @@ class AuthService {
     }
   }
 
-  Future<String?> signInWithGoogle() async {
+  // ✨ --- YEH FUNCTION BHI UPDATE HUA HAI --- ✨
+  Future<String?> signInWithGoogle({String? referredByCode}) async {
     try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
 
@@ -67,8 +78,13 @@ class AuthService {
       final UserCredential userCredential =
       await _auth.signInWithCredential(credential);
 
+      // Yahan check karenge ki naya user hai ya purana
+      final isNewUser = userCredential.additionalUserInfo?.isNewUser ?? false;
       if (userCredential.user != null) {
-        await _createUserInFirestore(userCredential.user!);
+        // Agar user naya hai, tabhi referral code ke saath document create karenge
+        if (isNewUser) {
+          await _createUserInFirestore(userCredential.user!, referredByCode: referredByCode);
+        }
       }
       return null;
     } catch (e) {
@@ -117,9 +133,11 @@ class AuthService {
     }
   }
 
+  // ✨ --- YEH FUNCTION BHI UPDATE HUA HAI --- ✨
   Future<String?> registerWithEmailAndPassword({
     required String email,
     required String password,
+    String? referredByCode, // Optional referral code parameter
   }) async {
     try {
       UserCredential userCredential =
@@ -129,7 +147,8 @@ class AuthService {
       );
 
       if (userCredential.user != null) {
-        await _createUserInFirestore(userCredential.user!);
+        // Yahan pe referredByCode pass kar rahe hain
+        await _createUserInFirestore(userCredential.user!, referredByCode: referredByCode);
       }
 
       return null;
@@ -175,20 +194,16 @@ class AuthService {
         return 'No user found or user has no email.';
       }
 
-      // Step 1: User ko unke current password se re-authenticate karo
       AuthCredential credential = EmailAuthProvider.credential(
         email: user.email!,
         password: currentPassword,
       );
       await user.reauthenticateWithCredential(credential);
-
-      // Step 2: Agar re-authentication successful ho, to naya password update karo
       await user.updatePassword(newPassword);
 
-      return null; // Success!
+      return null;
 
     } on FirebaseAuthException catch (e) {
-      // Common errors ko handle karo
       if (e.code == 'wrong-password') {
         return 'Your current password is incorrect.';
       } else if (e.code == 'weak-password') {

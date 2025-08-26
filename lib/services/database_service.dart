@@ -147,9 +147,6 @@ class DatabaseService {
     }
   }
 
-  // ✨ --- YEH RAHE NAYE FUNCTIONS --- ✨
-
-  // Function to check if the user has purchased a specific chapter
   Future<bool> hasAccessToChapter(String chapterId) async {
     if (uid != null) {
       final doc = await _db.collection('users').doc(uid).get();
@@ -161,14 +158,11 @@ class DatabaseService {
     return false;
   }
 
-  // Function to add a chapter to the user's purchased list after successful payment
   Future<void> grantChapterAccess(String userId, String chapterId) {
     return _db.collection('users').doc(userId).set({
       'purchasedChapters': FieldValue.arrayUnion([chapterId]),
     }, SetOptions(merge: true));
   }
-
-  // --- YAHAN TAK --- ✨
 
   Future<DocumentSnapshot> getUserData(String uid) async {
     return _db.collection('users').doc(uid).get();
@@ -178,5 +172,80 @@ class DatabaseService {
     return _db.collection('users').doc(uid).update({
       'freePdfViewCount': FieldValue.increment(1),
     });
+  }
+
+  // ✨ --- YEH RAHE NAYE FUNCTIONS --- ✨
+
+  // Function to update referral code from ProfileSetupScreen
+  Future<void> updateReferralInfo(String uid, String referredByCode) async {
+    if (referredByCode.trim().isEmpty) return;
+
+    final userDocRef = _db.collection('users').doc(uid);
+    final snapshot = await userDocRef.get();
+
+    if (snapshot.exists) {
+      final data = snapshot.data() as Map<String, dynamic>;
+      final hasReferrer = data.containsKey('referredBy') && data['referredBy'] != null;
+
+      if (!hasReferrer) {
+        await userDocRef.update({'referredBy': referredByCode.trim()});
+        print('Referral info updated for user $uid.');
+      }
+    }
+  }
+
+  // Function to process reward after a successful purchase
+  Future<void> processReferralOnPurchase({
+    required String purchaserUid,
+    required double purchaseAmount,
+  }) async {
+    try {
+      final purchaserDocRef = _db.collection('users').doc(purchaserUid);
+      final purchaserDoc = await purchaserDocRef.get();
+
+      if (!purchaserDoc.exists) {
+        print('Referral Error: Purchaser not found.');
+        return;
+      }
+
+      final purchaserData = purchaserDoc.data() as Map<String, dynamic>;
+      final bool isFirstPurchase = !(purchaserData['firstPurchaseMade'] ?? false);
+      final String? referredByCode = purchaserData['referredBy'];
+
+      if (isFirstPurchase && referredByCode != null && referredByCode.isNotEmpty) {
+        final referrerQuery = await _db
+            .collection('users')
+            .where('referralCode', isEqualTo: referredByCode)
+            .limit(1)
+            .get();
+
+        if (referrerQuery.docs.isNotEmpty) {
+          final referrerDoc = referrerQuery.docs.first;
+          final referrerRef = referrerDoc.reference;
+          final double rewardAmount = purchaseAmount * 0.10;
+
+          await _db.runTransaction((transaction) async {
+            transaction.update(referrerRef, {
+              'walletBalance': FieldValue.increment(rewardAmount),
+            });
+            transaction.update(purchaserDocRef, {
+              'firstPurchaseMade': true,
+            });
+          });
+
+          print('Success! 🔥 Reward of ₹$rewardAmount given to ${referrerDoc.id}');
+        } else {
+          print('Referral Error: Referrer with code "$referredByCode" not found.');
+          await purchaserDocRef.update({'firstPurchaseMade': true});
+        }
+      } else {
+        print('No reward given. Reason: Not a first purchase or no referrer found.');
+        if (isFirstPurchase) {
+          await purchaserDocRef.update({'firstPurchaseMade': true});
+        }
+      }
+    } catch (e) {
+      print('An unexpected error occurred while processing referral: $e');
+    }
   }
 }

@@ -30,7 +30,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
   # UI & Styling ke liye
   google_fonts: ^6.2.1
   iconly: ^1.0.1
@@ -64,6 +63,7 @@ dependencies:
   flutter_launcher_icons: ^0.14.4
   nanoid: ^1.0.0
   rename: ^3.1.0
+  share_plus: ^11.1.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

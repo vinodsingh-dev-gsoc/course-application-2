@@ -1,5 +1,3 @@
-// lib/screens/selection_screen.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:course_application/models/selection_models.dart';
 import 'package:course_application/screens/notes_display_screen.dart';
@@ -46,7 +44,7 @@ class _SelectionScreenState extends State<SelectionScreen> {
 
   final DatabaseService _databaseService = DatabaseService();
   late Razorpay _razorpay;
-  final String _razorpayKeyId = "rzp_test_R63e5HcDWJPQmZ"; // Aapki Key
+  final String _razorpayKeyId = "rzp_test_R9eAZNO40fYk2m"; // Aapki Key
 
   @override
   void initState() {
@@ -170,7 +168,7 @@ class _SelectionScreenState extends State<SelectionScreen> {
     var options = {
       'key': _razorpayKeyId,
       'amount': (_notesTotalAmount * 100).toInt(),
-      'name': 'Padhai Pedia',
+      'name': 'PadhaiPedia',
       'description': 'Notes for ${_selectedChapter!.name}',
       'prefill': {'email': user?.email ?? ''},
     };
@@ -182,14 +180,27 @@ class _SelectionScreenState extends State<SelectionScreen> {
     }
   }
 
+  // ✨ --- YAHAN PAR CHANGE HUA HAI --- ✨
   void _handlePaymentSuccess(PaymentSuccessResponse response) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
+
+    // --- YEH NAYI LINE ADD KI GAYI HAI ---
+    // Reward process shuru karo!
+    await _databaseService.processReferralOnPurchase(
+      purchaserUid: user.uid,
+      purchaseAmount: _notesTotalAmount,
+    );
+    // --- YAHAN TAK ---
+
+    // Baaki ka logic same rahega
     await _databaseService.grantChapterAccess(user.uid, _selectedChapter!.id);
+
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
       content: Text("Payment successful! Chapter Unlocked."),
       backgroundColor: Colors.green,
     ));
+
     setState(() => _hasPurchasedChapter = true);
     _navigateToNotesScreen();
   }
