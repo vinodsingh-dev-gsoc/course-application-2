@@ -2,11 +2,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class DatabaseService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final String? uid;
 
-  DatabaseService({this.uid});
+  // Constructor se UID hata diya. Service ab stateless hai.
+  DatabaseService();
 
-  Future<DocumentSnapshot> getUser(String uid) {
+  // Redundant 'getUser' function hata diya.
+  Future<DocumentSnapshot> getUserData(String uid) {
     return _db.collection('users').doc(uid).get();
   }
 
@@ -26,12 +27,7 @@ class DatabaseService {
 
   Future<void> addNoteToRecents(String uid, Map<String, dynamic> noteData) {
     final noteId = noteData['id'];
-    return _db
-        .collection('users')
-        .doc(uid)
-        .collection('recentNotes')
-        .doc(noteId)
-        .set({
+    return _db.collection('users').doc(uid).collection('recentNotes').doc(noteId).set({
       ...noteData,
       'lastViewed': FieldValue.serverTimestamp(),
     });
@@ -49,35 +45,72 @@ class DatabaseService {
     return Future.value();
   }
 
+  // BEST PRACTICE: Notes ko nested structure mein add karna.
   Future<String> addNote({
     required String classId,
+    required String patternId,
     required String subjectId,
     required String chapterId,
-    String? chapterName,
-    required String patternId,
     required String pdfUrl,
     required String fileName,
     required double amount,
+    String? chapterName, // Optional parameter ko last mein rakha.
   }) async {
     try {
-      await _db.collection('notes').add({
-        'classId': classId,
-        'subjectId': subjectId,
-        'chapterId': chapterId,
-        'chapterName': chapterName,
-        'patternId': patternId,
+      final noteCollectionRef = _db
+          .collection('classes')
+          .doc(classId)
+          .collection('patterns')
+          .doc(patternId)
+          .collection('subjects')
+          .doc(subjectId)
+          .collection('chapters')
+          .doc(chapterId)
+          .collection('notes');
+
+      await noteCollectionRef.add({
         'pdfUrl': pdfUrl,
         'fileName': fileName,
-        'createdAt': FieldValue.serverTimestamp(),
         'amount': amount,
+        'createdAt': FieldValue.serverTimestamp(),
+        // Redundant IDs store karne ki zaroorat nahi.
       });
       return 'Success';
     } catch (e) {
-      print('Error adding note to Firestore: $e');
-      return 'Error: Could not save note details.';
+      print('Error adding note: $e');
+      throw Exception('Error: Could not save note details.');
     }
   }
 
+  // BEST PRACTICE: Notes ko nested structure se get karna.
+  Future<List<QueryDocumentSnapshot>> getNotes({
+    required String classId,
+    required String patternId,
+    required String subjectId,
+    required String chapterId,
+  }) async {
+    try {
+      final querySnapshot = await _db
+          .collection('classes')
+          .doc(classId)
+          .collection('patterns')
+          .doc(patternId)
+          .collection('subjects')
+          .doc(subjectId)
+          .collection('chapters')
+          .doc(chapterId)
+          .collection('notes')
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      return querySnapshot.docs;
+    } catch (e) {
+      print('Error getting notes: $e');
+      throw Exception('Could not fetch notes.');
+    }
+  }
+
+  // Yeh function unchanged hai, structure create karne ke liye perfect hai.
   Future<void> createCourseStructure({
     required String classId,
     required String className,
@@ -101,13 +134,14 @@ class DatabaseService {
     });
   }
 
+  // Yeh bhi unchanged hai.
   Future<void> addNewItem({
-    String? classId,
-    String? patternId,
-    String? subjectId,
     required String itemType,
     required String itemId,
     required String itemName,
+    String? classId,
+    String? patternId,
+    String? subjectId,
   }) async {
     DocumentReference? docRef;
     if (itemType == 'Class') {
@@ -121,80 +155,49 @@ class DatabaseService {
     }
 
     if (docRef != null) {
-      await docRef.set({'name': itemName});
+      await docRef.set({'name': itemName}, SetOptions(merge: true));
     }
   }
 
-  Future<List<QueryDocumentSnapshot>> getNotes({
-    required String classId,
-    required String subjectId,
-    required String chapterId,
-    required String patternId,
-  }) async {
-    try {
-      final querySnapshot = await _db
-          .collection('notes')
-          .where('classId', isEqualTo: classId)
-          .where('subjectId', isEqualTo: subjectId)
-          .where('chapterId', isEqualTo: chapterId)
-          .where('patternId', isEqualTo: patternId)
-          .get();
-
-      return querySnapshot.docs;
-    } catch (e) {
-      print('Error getting notes: $e');
-      return [];
-    }
-  }
-
-  Future<bool> hasAccessToChapter(String chapterId) async {
-    if (uid != null) {
-      final doc = await _db.collection('users').doc(uid).get();
-      if (doc.exists && doc.data()!.containsKey('purchasedChapters')) {
-        final List purchasedChapters = doc.data()!['purchasedChapters'];
-        return purchasedChapters.contains(chapterId);
+  // Humare pichle discussion ke according, class-level access.
+  Future<bool> hasAccessToClass(String uid, String classId) async {
+    final doc = await getUserData(uid);
+    if (doc.exists) {
+      final data = doc.data() as Map<String, dynamic>;
+      if (data.containsKey('purchasedClasses') && data['purchasedClasses'] is List) {
+        return (data['purchasedClasses'] as List).contains(classId);
       }
     }
     return false;
   }
 
-  Future<void> grantChapterAccess(String userId, String chapterId) {
-    return _db.collection('users').doc(userId).set({
-      'purchasedChapters': FieldValue.arrayUnion([chapterId]),
-    }, SetOptions(merge: true));
+  Future<void> grantClassAccess(String uid, String classId) {
+    return _db.collection('users').doc(uid).update({
+      'purchasedClasses': FieldValue.arrayUnion([classId]),
+    });
   }
 
-  Future<DocumentSnapshot> getUserData(String uid) async {
-    return _db.collection('users').doc(uid).get();
-  }
-
-  Future<void> incrementPdfViewCount(String uid) async {
+  Future<void> incrementPdfViewCount(String uid) {
     return _db.collection('users').doc(uid).update({
       'freePdfViewCount': FieldValue.increment(1),
     });
   }
 
-  // ✨ --- YEH RAHE NAYE FUNCTIONS --- ✨
+  // --- Referral System Functions ---
 
-  // Function to update referral code from ProfileSetupScreen
   Future<void> updateReferralInfo(String uid, String referredByCode) async {
     if (referredByCode.trim().isEmpty) return;
-
     final userDocRef = _db.collection('users').doc(uid);
     final snapshot = await userDocRef.get();
-
     if (snapshot.exists) {
       final data = snapshot.data() as Map<String, dynamic>;
       final hasReferrer = data.containsKey('referredBy') && data['referredBy'] != null;
-
       if (!hasReferrer) {
         await userDocRef.update({'referredBy': referredByCode.trim()});
-        print('Referral info updated for user $uid.');
       }
     }
   }
 
-  // Function to process reward after a successful purchase
   Future<void> processReferralOnPurchase({
     required String purchaserUid,
     required double purchaseAmount,
@@ -203,49 +206,32 @@ class DatabaseService {
       final purchaserDocRef = _db.collection('users').doc(purchaserUid);
       final purchaserDoc = await purchaserDocRef.get();
 
-      if (!purchaserDoc.exists) {
-        print('Referral Error: Purchaser not found.');
-        return;
-      }
+      if (!purchaserDoc.exists) throw Exception('Purchaser not found.');
 
       final purchaserData = purchaserDoc.data() as Map<String, dynamic>;
-      final bool isFirstPurchase = !(purchaserData['firstPurchaseMade'] ?? false);
+      final isFirstPurchase = !(purchaserData['firstPurchaseMade'] ?? false);
       final String? referredByCode = purchaserData['referredBy'];
 
       if (isFirstPurchase && referredByCode != null && referredByCode.isNotEmpty) {
-        final referrerQuery = await _db
-            .collection('users')
-            .where('referralCode', isEqualTo: referredByCode)
-            .limit(1)
-            .get();
+        final referrerQuery = await _db.collection('users').where('referralCode', isEqualTo: referredByCode).limit(1).get();
 
         if (referrerQuery.docs.isNotEmpty) {
           final referrerDoc = referrerQuery.docs.first;
-          final referrerRef = referrerDoc.reference;
           final double rewardAmount = purchaseAmount * 0.10;
 
           await _db.runTransaction((transaction) async {
-            transaction.update(referrerRef, {
-              'walletBalance': FieldValue.increment(rewardAmount),
-            });
-            transaction.update(purchaserDocRef, {
-              'firstPurchaseMade': true,
-            });
+            transaction.update(referrerDoc.reference, {'walletBalance': FieldValue.increment(rewardAmount)});
+            transaction.update(purchaserDocRef, {'firstPurchaseMade': true});
           });
-
-          print('Success! 🔥 Reward of ₹$rewardAmount given to ${referrerDoc.id}');
         } else {
-          print('Referral Error: Referrer with code "$referredByCode" not found.');
           await purchaserDocRef.update({'firstPurchaseMade': true});
         }
-      } else {
-        print('No reward given. Reason: Not a first purchase or no referrer found.');
-        if (isFirstPurchase) {
-          await purchaserDocRef.update({'firstPurchaseMade': true});
-        }
+      } else if (isFirstPurchase) {
+        await purchaserDocRef.update({'firstPurchaseMade': true});
       }
     } catch (e) {
       print('An unexpected error occurred while processing referral: $e');
+      throw Exception('Could not process referral reward.');
     }
   }
 }

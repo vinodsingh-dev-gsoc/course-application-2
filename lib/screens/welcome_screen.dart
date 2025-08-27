@@ -60,7 +60,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                   alignment: Alignment.center,
                   // Static Image ko Lottie se replace karo
                   child: Lottie.asset(
-                    'assets/animations/register_animation.json', // Apna animation yahan daalo
+                    'assets/animations/welcome_animation.json', // Apna animation yahan daalo
                     height: 300,
                   ),
                 ),

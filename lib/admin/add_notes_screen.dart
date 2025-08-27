@@ -1,5 +1,3 @@
-// lib/admin/add_notes_screen.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:course_application/models/selection_models.dart';
 import 'package:course_application/services/database_service.dart';
@@ -7,6 +5,7 @@ import 'package:course_application/services/storage_service.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:iconly/iconly.dart';
 
 class AddNotesScreen extends StatefulWidget {
   const AddNotesScreen({super.key});
@@ -135,10 +134,14 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
   void _clearFile() => setState(() => _selectedFile = null);
 
   void _saveNote() async {
+    // Validate all previous steps before saving
+    if (_selectedClass == null || _selectedPattern == null || _selectedSubject == null || _selectedChapter == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please complete all previous steps!'), backgroundColor: Colors.orange));
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) {
-      setState(() {
-        _currentStep = 4;
-      });
       return;
     }
 
@@ -169,7 +172,7 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Note uploaded successfully!')));
+            const SnackBar(content: Text('Note uploaded successfully!'), backgroundColor: Colors.green,));
         setState(() {
           _selectedFile = null;
           _currentStep = 0;
@@ -201,7 +204,8 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
     return await showDialog<Map<String, String>?>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Add New $itemType'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Add New $itemType', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
         content: Form(
           key: formKey,
           child: Column(
@@ -209,15 +213,16 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
             children: [
               TextFormField(
                 controller: nameController,
-                decoration: InputDecoration(labelText: '$itemType Name'),
+                decoration: InputDecoration(labelText: '$itemType Name', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
                 validator: (value) =>
                 (value?.isEmpty ?? true) ? 'Name cannot be empty' : null,
                 onChanged: (value) => idController.text = generateId(value),
               ),
+              const SizedBox(height: 16),
               TextFormField(
                 controller: idController,
                 decoration:
-                InputDecoration(labelText: '$itemType ID (auto-generated)'),
+                InputDecoration(labelText: '$itemType ID (auto-generated)', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
                 validator: (value) =>
                 (value?.isEmpty ?? true) ? 'ID cannot be empty' : null,
               ),
@@ -229,6 +234,11 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
               onPressed: () => Navigator.pop(context),
               child: const Text('Cancel')),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
+            ),
             onPressed: () async {
               if (formKey.currentState!.validate()) {
                 final String itemId = idController.text.trim();
@@ -255,25 +265,40 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
-          title: Text("Add New Note", style: GoogleFonts.poppins()),
+          title: Text("Add New Note", style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.white)),
           backgroundColor: Colors.deepPurple,
+          elevation: 1,
+          centerTitle: true,
           foregroundColor: Colors.white),
       body: Form(
         key: _formKey,
         child: Theme(
           data: ThemeData(
             colorScheme: ColorScheme.light(primary: Colors.deepPurple),
+            canvasColor: Colors.grey[100],
           ),
           child: Stepper(
             type: StepperType.vertical,
             currentStep: _currentStep,
+            onStepTapped: (step) => setState(() => _currentStep = step),
             onStepContinue: () {
-              final isLastStep = _currentStep == 4;
-              if (isLastStep) {
-                _saveNote();
-              } else {
+              bool isStepComplete = false;
+              switch(_currentStep) {
+                case 0: isStepComplete = _selectedClass != null; break;
+                case 1: isStepComplete = _selectedPattern != null; break;
+                case 2: isStepComplete = _selectedSubject != null; break;
+                case 3: isStepComplete = _selectedChapter != null; break;
+                case 4: _saveNote(); return;
+              }
+
+              if (isStepComplete) {
                 setState(() => _currentStep += 1);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Please complete this step to continue.'), backgroundColor: Colors.orangeAccent),
+                );
               }
             },
             onStepCancel: () {
@@ -281,9 +306,30 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
                 setState(() => _currentStep -= 1);
               }
             },
+            controlsBuilder: (context, details) {
+              return Padding(
+                padding: const EdgeInsets.only(top: 16.0),
+                child: Row(
+                  children: [
+                    if(_currentStep != 4)
+                      ElevatedButton.icon(
+                        onPressed: details.onStepContinue,
+                        icon: const Icon(Icons.arrow_downward),
+                        label: const Text('CONTINUE'),
+                      ),
+                    if (_currentStep > 0 && _currentStep != 4)
+                      TextButton(
+                        onPressed: details.onStepCancel,
+                        child: const Text('BACK'),
+                      ),
+                  ],
+                ),
+              );
+            },
             steps: [
               _buildStep(
                 title: 'Class',
+                icon: IconlyBold.user_3,
                 step: 0,
                 content: _buildDropdownWithAdd<ClassModel>(
                   label: 'Class',
@@ -309,6 +355,7 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
               ),
               _buildStep(
                 title: 'Pattern',
+                icon: IconlyBold.category,
                 step: 1,
                 content: _buildDropdownWithAdd<PatternModel>(
                   label: 'Pattern',
@@ -336,6 +383,7 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
               ),
               _buildStep(
                 title: 'Subject',
+                icon: IconlyBold.bookmark,
                 step: 2,
                 content: _buildDropdownWithAdd<SubjectModel>(
                   label: 'Subject',
@@ -367,6 +415,7 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
               ),
               _buildStep(
                 title: 'Chapter',
+                icon: IconlyBold.document,
                 step: 3,
                 content: _buildDropdownWithAdd<ChapterModel>(
                   label: 'Chapter',
@@ -390,6 +439,7 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
               ),
               _buildStep(
                 title: 'Upload & Save',
+                icon: IconlyBold.upload,
                 step: 4,
                 content: Column(
                   children: [
@@ -400,7 +450,7 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
                         labelText: "Amount (e.g., 49.00)",
-                        prefixText: "₹",
+                        prefixText: "₹ ",
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -426,7 +476,8 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
                         style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.green,
                             padding:
-                            const EdgeInsets.symmetric(vertical: 16)),
+                            const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                         label: const Text("Save Note",
                             style: TextStyle(
                                 fontSize: 18, color: Colors.white)),
@@ -444,12 +495,22 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
 
   Step _buildStep({
     required String title,
+    required IconData icon,
     required int step,
     required Widget content,
   }) {
     return Step(
-      title: Text(title),
-      content: content,
+      title: Row(
+        children: [
+          Icon(icon, color: _currentStep >= step ? Colors.deepPurple : Colors.grey, size: 22),
+          const SizedBox(width: 12),
+          Text(title, style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+        ],
+      ),
+      content: Padding(
+        padding: const EdgeInsets.only(left: 8.0, top: 8.0),
+        child: content,
+      ),
       isActive: _currentStep >= step,
       state: _currentStep > step ? StepState.complete : StepState.indexed,
     );
@@ -475,8 +536,10 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
             filled: !isEnabled,
             fillColor: Colors.grey[200],
             prefixIcon: isLoading
-                ? Transform.scale(
-                scale: 0.5, child: const CircularProgressIndicator())
+                ? const Padding(
+              padding: EdgeInsets.all(12.0),
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
                 : null,
           ),
           value: value,
@@ -495,7 +558,7 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
             alignment: Alignment.centerRight,
             child: TextButton.icon(
               onPressed: onAddNew,
-              icon: Icon(Icons.add, size: 16),
+              icon: const Icon(Icons.add, size: 16),
               label: Text('Add New $label'),
             ),
           )
@@ -505,18 +568,31 @@ class _AddNotesScreenState extends State<AddNotesScreen> {
 
   Widget _buildFilePicker() {
     if (_selectedFile == null) {
-      return OutlinedButton.icon(
-        icon: const Icon(Icons.upload_file),
-        label: const Text("Upload Notes PDF"),
-        onPressed: _pickFile,
-        style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 16)),
+      return InkWell(
+        onTap: _pickFile,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 30),
+          decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade400, style: BorderStyle.solid, width: 2)
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(IconlyBold.upload, color: Colors.deepPurple, size: 40),
+              const SizedBox(height: 12),
+              Text("Upload Notes PDF", style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: Colors.deepPurple))
+            ],
+          ),
+        ),
       );
     } else {
       return Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade400),
+            border: Border.all(color: Colors.green.shade400),
+            color: Colors.green.shade50,
             borderRadius: BorderRadius.circular(12)),
         child: Row(
           children: [

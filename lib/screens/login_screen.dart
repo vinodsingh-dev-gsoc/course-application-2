@@ -1,12 +1,14 @@
-// lib/screens/login_screen.dart
-
+import 'package:course_application/auth/forgot_pass.dart';
+import 'package:course_application/screens/home/home_screen.dart';
+import 'package:course_application/screens/profile_setup_screen.dart';
+import 'package:course_application/screens/register_screen.dart';
+import 'package:course_application/services/auth_service.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:course_application/screens/register_screen.dart';
-import 'package:course_application/auth/forgot_pass.dart';
-import 'package:course_application/services/auth_service.dart';
-import 'home/home_screen.dart';
+import 'package:iconly/iconly.dart';
+import 'package:lottie/lottie.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -73,11 +75,21 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _signInWithGoogle() async {
     setState(() => _isLoading = true);
     String? result = await _authService.signInWithGoogle();
+
     if (mounted) {
       setState(() => _isLoading = false);
     }
+
     if (result == null) {
       _navigateToHome();
+    } else if (result == 'new_user') {
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const ProfileSetupScreen()),
+              (Route<dynamic> route) => false,
+        );
+      }
     } else {
       _showErrorSnackBar(result);
     }
@@ -88,30 +100,40 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 30.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildHeader(),
-                  const SizedBox(height: 40),
-                  _buildEmailField(),
-                  const SizedBox(height: 20),
-                  _buildPasswordField(),
-                  _buildForgotPasswordButton(context),
-                  const SizedBox(height: 25),
-                  _buildSignInButton(),
-                  const SizedBox(height: 30),
-                  _buildDivider(),
-                  const SizedBox(height: 30),
-                  _buildGoogleSignInButton(),
-                  const SizedBox(height: 40),
-                  _buildRegisterNowText(context),
-                ],
+        child: AnimationLimiter(
+          child: Center(
+            child: SingleChildScrollView(
+              padding:
+              const EdgeInsets.symmetric(horizontal: 24.0, vertical: 30.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: AnimationConfiguration.toStaggeredList(
+                    duration: const Duration(milliseconds: 400),
+                    childAnimationBuilder: (widget) => SlideAnimation(
+                      verticalOffset: 50.0,
+                      child: FadeInAnimation(child: widget),
+                    ),
+                    children: [
+                      _buildHeader(),
+                      const SizedBox(height: 32),
+                      _buildEmailField(),
+                      const SizedBox(height: 20),
+                      _buildPasswordField(),
+                      _buildForgotPasswordButton(context),
+                      const SizedBox(height: 25),
+                      _buildSignInButton(),
+                      const SizedBox(height: 24),
+                      _buildDivider(),
+                      const SizedBox(height: 24),
+                      _buildGoogleSignInButton(),
+                      const SizedBox(height: 32),
+                      _buildRegisterNowText(context),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -123,10 +145,9 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildHeader() {
     return Column(
       children: [
-        Icon(
-          Icons.school_rounded,
-          size: 80,
-          color: Colors.deepPurple,
+        Lottie.asset(
+          'assets/animations/login_animation.json',
+          height: 200,
         ),
         const SizedBox(height: 20),
         Text(
@@ -150,13 +171,13 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  TextFormField _buildEmailField() {
+  Widget _buildEmailField() {
     return TextFormField(
       controller: _emailController,
       keyboardType: TextInputType.emailAddress,
       decoration: InputDecoration(
         labelText: "Email",
-        prefixIcon: const Icon(Icons.email_outlined),
+        prefixIcon: const Icon(IconlyLight.message),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
         ),
@@ -173,16 +194,16 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  TextFormField _buildPasswordField() {
+  Widget _buildPasswordField() {
     return TextFormField(
       controller: _passwordController,
       obscureText: !_isPasswordVisible,
       decoration: InputDecoration(
         labelText: "Password",
-        prefixIcon: const Icon(Icons.lock_outline),
+        prefixIcon: const Icon(IconlyLight.lock),
         suffixIcon: IconButton(
           icon: Icon(
-            _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+            _isPasswordVisible ? IconlyBold.show : IconlyLight.show,
           ),
           onPressed: () {
             setState(() {
@@ -210,7 +231,8 @@ class _LoginScreenState extends State<LoginScreen> {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const ForgotPasswordScreen()),
+            MaterialPageRoute(
+                builder: (context) => const ForgotPasswordScreen()),
           );
         },
         child: Text(
@@ -235,10 +257,15 @@ class _LoginScreenState extends State<LoginScreen> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
+        elevation: 5,
+        shadowColor: Colors.deepPurple.withOpacity(0.4),
       ),
       child: Text(
         "Sign In",
-        style: GoogleFonts.poppins(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+        style: GoogleFonts.poppins(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w600),
       ),
     );
   }

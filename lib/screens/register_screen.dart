@@ -2,7 +2,10 @@ import 'package:course_application/screens/profile_setup_screen.dart';
 import 'package:course_application/services/auth_service.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:iconly/iconly.dart';
+import 'package:lottie/lottie.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -79,7 +82,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         leading: const BackButton(color: Colors.black),
       ),
       body: SafeArea(
-        child: Center(
+        child: AnimationLimiter(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24.0),
             child: Form(
@@ -87,19 +90,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildHeader(),
-                  const SizedBox(height: 48),
-                  _buildEmailField(),
-                  const SizedBox(height: 20),
-                  _buildPasswordField(),
-                  const SizedBox(height: 20),
-                  _buildConfirmPasswordField(),
-                  const SizedBox(height: 32),
-                  _buildSignUpButton(),
-                  const SizedBox(height: 24),
-                  _buildLoginNowText(),
-                ],
+                children: AnimationConfiguration.toStaggeredList(
+                  duration: const Duration(milliseconds: 400),
+                  childAnimationBuilder: (widget) => SlideAnimation(
+                    verticalOffset: 50.0,
+                    child: FadeInAnimation(child: widget),
+                  ),
+                  children: [
+                    _buildHeader(),
+                    const SizedBox(height: 32),
+                    _buildEmailField(),
+                    const SizedBox(height: 20),
+                    _buildPasswordField(),
+                    const SizedBox(height: 20),
+                    _buildConfirmPasswordField(),
+                    const SizedBox(height: 32),
+                    _buildSignUpButton(),
+                    const SizedBox(height: 24),
+                    _buildLoginNowText(),
+                    const SizedBox(height: 20),
+                  ],
+                ),
               ),
             ),
           ),
@@ -111,20 +122,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget _buildHeader() {
     return Column(
       children: [
+        Lottie.asset(
+          'assets/animations/register_animation.json',
+          height: 200,
+        ),
+        const SizedBox(height: 20),
         Text(
-          "Create Account",
+          "Create Your Account",
           style: GoogleFonts.poppins(
-            fontSize: 32,
+            fontSize: 28,
             fontWeight: FontWeight.bold,
             color: Colors.black,
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          "Let's get started with your new account!",
+          "Join us to start your learning journey!",
           textAlign: TextAlign.center,
           style: GoogleFonts.poppins(
-            fontSize: 18,
+            fontSize: 16,
             color: Colors.grey[600],
           ),
         ),
@@ -132,16 +148,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  TextFormField _buildEmailField() {
+  Widget _buildEmailField() {
     return TextFormField(
       controller: _emailController,
       keyboardType: TextInputType.emailAddress,
       decoration: InputDecoration(
         labelText: "Email",
-        prefixIcon: const Icon(Icons.email_outlined),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        prefixIcon: const Icon(IconlyLight.message),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
       validator: (value) {
         if (value == null || value.isEmpty) {
@@ -155,16 +169,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  TextFormField _buildPasswordField() {
+  Widget _buildPasswordField() {
     return TextFormField(
       controller: _passwordController,
       obscureText: !_isPasswordVisible,
       decoration: InputDecoration(
         labelText: "Password",
-        prefixIcon: const Icon(Icons.lock_outline),
+        prefixIcon: const Icon(IconlyLight.lock),
         suffixIcon: IconButton(
           icon: Icon(
-            _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+            _isPasswordVisible ? IconlyBold.show : IconlyLight.show,
           ),
           onPressed: () {
             setState(() {
@@ -172,9 +186,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             });
           },
         ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
       validator: (value) {
         if (value == null || value.isEmpty) {
@@ -188,16 +200,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  TextFormField _buildConfirmPasswordField() {
+  Widget _buildConfirmPasswordField() {
     return TextFormField(
       controller: _confirmPasswordController,
       obscureText: !_isPasswordVisible,
       decoration: InputDecoration(
         labelText: "Confirm Password",
-        prefixIcon: const Icon(Icons.lock_outline),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        prefixIcon: const Icon(IconlyLight.lock),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
       validator: (value) {
         if (value == null || value.isEmpty) {
@@ -217,11 +227,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
         : ElevatedButton(
       onPressed: _signUp,
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF42A5F5),
+        backgroundColor: Colors.deepPurple,
         minimumSize: const Size(double.infinity, 55),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
+        elevation: 5,
+        shadowColor: Colors.deepPurple.withOpacity(0.4),
       ),
       child: Text(
         "Sign Up",
@@ -238,13 +250,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return RichText(
       textAlign: TextAlign.center,
       text: TextSpan(
-        style: GoogleFonts.poppins(color: Colors.grey[700]),
+        style: GoogleFonts.poppins(color: Colors.grey[700], fontSize: 15),
         children: [
           const TextSpan(text: "Already a member? "),
           TextSpan(
             text: "Login now",
             style: const TextStyle(
-              color: Colors.blueAccent,
+              color: Colors.deepPurple,
               fontWeight: FontWeight.bold,
             ),
             recognizer: TapGestureRecognizer()

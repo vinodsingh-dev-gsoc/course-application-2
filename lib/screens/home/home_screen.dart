@@ -1,5 +1,3 @@
-// lib/screens/home/home_screen.dart
-
 import 'package:carousel_slider/carousel_slider.dart' as custom_carousel;
 import 'package:course_application/screens/account_screen.dart';
 import 'package:course_application/screens/pdf_screen_viewer.dart';
@@ -12,7 +10,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:course_application/services/notification_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
-
+import 'package:iconly/iconly.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -44,7 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final List<Widget> screens = <Widget>[
-      _HomeScreenContent(onNavigate: _onItemTapped), // Pass the callback
+      _HomeScreenContent(onNavigate: _onItemTapped),
       const SavedNotesScreen(),
       const AccountScreen(),
     ];
@@ -58,7 +56,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ===== NAYA AUR FANCY BOTTOM NAVIGATION BAR =====
   Widget _buildFancyBottomNavBar() {
     return Container(
       margin: const EdgeInsets.all(12.0),
@@ -78,18 +75,18 @@ class _HomeScreenState extends State<HomeScreen> {
         child: BottomNavigationBar(
           items: const <BottomNavigationBarItem>[
             BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home),
+              icon: Icon(IconlyLight.home),
+              activeIcon: Icon(IconlyBold.home),
               label: 'Home',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.bookmark_border),
-              activeIcon: Icon(Icons.bookmark),
+              icon: Icon(IconlyLight.bookmark),
+              activeIcon: Icon(IconlyBold.bookmark),
               label: 'Saved',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
+              icon: Icon(IconlyLight.profile),
+              activeIcon: Icon(IconlyBold.profile),
               label: 'Account',
             ),
           ],
@@ -108,9 +105,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-
 class _HomeScreenContent extends StatefulWidget {
-  final Function(int) onNavigate; // Callback to handle navigation
+  final Function(int) onNavigate;
   const _HomeScreenContent({required this.onNavigate});
 
   @override
@@ -118,9 +114,7 @@ class _HomeScreenContent extends StatefulWidget {
 }
 
 class __HomeScreenContentState extends State<_HomeScreenContent> {
-  User? _currentUser;
-  String _displayName = 'User';
-  int _currentBannerIndex = 0;
+  final User? _currentUser = FirebaseAuth.instance.currentUser;
 
   final List<String> eventBanners = [
     'assets/carousel_banner1.png',
@@ -129,161 +123,170 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
   ];
 
   @override
-  void initState() {
-    super.initState();
-    _loadUserData();
-  }
-
-  void _loadUserData() {
-    _currentUser = FirebaseAuth.instance.currentUser;
-    if (_currentUser != null) {
-      setState(() {
-        _displayName = _currentUser!.displayName ?? 'User';
-      });
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.symmetric(vertical: 16.0),
-          children: [
-            _buildHeader(),
-            const SizedBox(height: 24),
-            _buildEventsBanner(),
-            const SizedBox(height: 24),
-            _buildCategories(),
-            const SizedBox(height: 24),
-            Padding(
+      body: CustomScrollView(
+        slivers: [
+          _buildHeader(),
+          SliverToBoxAdapter(
+            child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20.0),
-              child: Text('Recently Opened',
-                  style: GoogleFonts.poppins(
-                      fontSize: 22, fontWeight: FontWeight.bold)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 30),
+                  _buildSectionHeader("Special Offers 🔥"),
+                  const SizedBox(height: 16),
+                  _buildEventsBanner(),
+                  const SizedBox(height: 30),
+                  _buildSectionHeader("Categories"),
+                  const SizedBox(height: 16),
+                  _buildCategories(),
+                  const SizedBox(height: 30),
+                  _buildSectionHeader("Recently Opened",
+                      onViewAll: () => widget.onNavigate(1)),
+                  const SizedBox(height: 16),
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            _buildRecentNotesList(),
-          ],
-        ),
+          ),
+          _buildRecentNotesListSliver(),
+        ],
       ),
     );
   }
 
   Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Hello, $_displayName! 👋',
-                  style: GoogleFonts.poppins(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  "What do you want to learn today?",
-                  style:
-                  GoogleFonts.poppins(fontSize: 14, color: Colors.grey[600]),
-                ),
-              ],
-            ),
-          ),
-          GestureDetector(
-            onTap: () => widget.onNavigate(2), // Navigate to Account screen
-            child: CircleAvatar(
-              radius: 28,
-              backgroundImage: _currentUser?.photoURL != null
-                  ? NetworkImage(_currentUser!.photoURL!)
-                  : null,
-              backgroundColor: Colors.deepPurple.withOpacity(0.1),
-              child: _currentUser?.photoURL == null
-                  ? const Icon(Icons.person,
-                  size: 30, color: Colors.deepPurple)
-                  : null,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+    if (_currentUser == null) {
+      return SliverToBoxAdapter(child: Container());
+    }
 
+    return SliverAppBar(
+      backgroundColor: Colors.grey[50],
+      pinned: true,
+      floating: true,
+      elevation: 0,
+      automaticallyImplyLeading: false,
+      title: StreamBuilder<DocumentSnapshot>(
+        stream: DatabaseService().getUserStream(_currentUser!.uid),
+        builder: (context, snapshot) {
+          String displayName = 'User';
+          String? photoUrl;
 
-
-  Widget _buildEventsBanner() {
-    return custom_carousel.CarouselSlider(
-      items: eventBanners.map((item) => Container(
-        margin: const EdgeInsets.symmetric(horizontal: 5.0),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          image: DecorationImage(
-            image: AssetImage(item),
-            fit: BoxFit.cover,
-          ),
-        ),
-      )).toList(),
-      options: custom_carousel.CarouselOptions(
-          height: 160,
-          autoPlay: true,
-          enlargeCenterPage: true,
-          viewportFraction: 0.85,
-          onPageChanged: (index, reason) {
-            setState(() {
-              _currentBannerIndex = index;
-            });
+          if (snapshot.hasData && snapshot.data!.exists) {
+            final userData = snapshot.data!.data() as Map<String, dynamic>;
+            displayName = userData['displayName'] ?? 'User';
+            photoUrl = userData['photoURL'];
           }
-      ),
-    );
-  }
 
-
-  Widget _buildCategories() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Categories',
-              style: GoogleFonts.poppins(
-                  fontSize: 22, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          Row(
+          return Row(
             children: [
-              _buildCategoryButton(
-                'Explore Notes',
-                Colors.deepPurple,
-                Icons.explore_outlined,
-                    () {
-                  Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const SelectionScreen()));
-                },
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Hello, $displayName! 👋',
+                      style: GoogleFonts.poppins(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      "What do you want to learn today?",
+                      style: GoogleFonts.poppins(
+                          fontSize: 14, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(width: 16),
-              _buildCategoryButton(
-                'My Library',
-                Colors.orange.shade700,
-                Icons.bookmark_added_outlined,
-                    () => widget.onNavigate(1), // Navigate to Saved screen
+              GestureDetector(
+                onTap: () => widget.onNavigate(2),
+                child: CircleAvatar(
+                  radius: 24,
+                  backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
+                  backgroundColor: Colors.deepPurple.withOpacity(0.1),
+                  child: photoUrl == null
+                      ? const Icon(Icons.person,
+                      size: 28, color: Colors.deepPurple)
+                      : null,
+                ),
               ),
             ],
-          ),
-        ],
+          );
+        },
       ),
     );
   }
 
+
+  Widget _buildSectionHeader(String title, {VoidCallback? onViewAll}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        if (onViewAll != null)
+          TextButton(
+            onPressed: onViewAll,
+            child: Text(
+              "View All",
+              style: GoogleFonts.poppins(
+                  color: Colors.deepPurple, fontWeight: FontWeight.w600),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildEventsBanner() {
+    return custom_carousel.CarouselSlider.builder(
+      itemCount: eventBanners.length,
+      itemBuilder: (context, index, realIndex) {
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            image: DecorationImage(
+              image: AssetImage(eventBanners[index]),
+              fit: BoxFit.cover,
+            ),
+          ),
+        );
+      },
+      options: custom_carousel.CarouselOptions(
+        height: 160,
+        autoPlay: true,
+        enlargeCenterPage: true,
+        viewportFraction: 1,
+      ),
+    );
+  }
+
+  Widget _buildCategories() {
+    return Row(
+      children: [
+        _buildCategoryButton(
+          'Explore Notes',
+          Colors.deepPurple,
+          IconlyBold.discovery,
+              () => Navigator.push(context,
+              MaterialPageRoute(builder: (context) => const SelectionScreen())),
+        ),
+        const SizedBox(width: 16),
+        _buildCategoryButton(
+          'My Library',
+          Colors.orange.shade700,
+          IconlyBold.bookmark,
+              () => widget.onNavigate(1),
+        ),
+      ],
+    );
+  }
 
   Widget _buildCategoryButton(
       String text, Color color, IconData iconData, VoidCallback onTap) {
@@ -294,25 +297,18 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
           decoration: BoxDecoration(
-            color: color,
+            color: color.withOpacity(0.1),
             borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: color.withOpacity(0.3),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(iconData, color: Colors.white, size: 28),
+              Icon(iconData, color: color, size: 28),
               const SizedBox(height: 8),
               Text(
                 text,
                 style: GoogleFonts.poppins(
-                  color: Colors.white,
+                  color: color,
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
                 ),
@@ -325,49 +321,56 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
     );
   }
 
-  Widget _buildRecentNotesList() {
+  Widget _buildRecentNotesListSliver() {
     if (_currentUser == null) {
-      return const Center(child: Text('Please log in to see recent notes.'));
+      return const SliverToBoxAdapter(
+          child: Center(child: Text('Please log in to see recent notes.')));
     }
 
     return StreamBuilder<QuerySnapshot>(
       stream: DatabaseService().getRecentNotesStream(_currentUser!.uid),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const SliverToBoxAdapter(
+              child: Center(child: CircularProgressIndicator()));
         }
         if (snapshot.hasError) {
-          return const Center(child: Text('Something went wrong!'));
+          return const SliverToBoxAdapter(
+              child: Center(child: Text('Something went wrong!')));
         }
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return Center(
+          return SliverToBoxAdapter(
+            child: Center(
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 20.0),
                 child: Text('No recently opened notes.',
                     style: GoogleFonts.poppins(color: Colors.grey)),
-              ));
+              ),
+            ),
+          );
         }
 
         final recentNotes = snapshot.data!.docs;
 
-        return AnimationLimiter(
-          child: ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: recentNotes.length,
-            itemBuilder: (context, index) {
-              final note = recentNotes[index].data() as Map<String, dynamic>;
-              return AnimationConfiguration.staggeredList(
-                position: index,
-                duration: const Duration(milliseconds: 375),
-                child: SlideAnimation(
-                  verticalOffset: 50.0,
-                  child: FadeInAnimation(
-                    child: _buildRecentNoteCard(note),
+        return SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 20.0),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                final note = recentNotes[index].data() as Map<String, dynamic>;
+                return AnimationConfiguration.staggeredList(
+                  position: index,
+                  duration: const Duration(milliseconds: 375),
+                  child: SlideAnimation(
+                    verticalOffset: 50.0,
+                    child: FadeInAnimation(
+                      child: _buildRecentNoteCard(note),
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+              childCount: recentNotes.length,
+            ),
           ),
         );
       },
@@ -376,7 +379,7 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
 
   Widget _buildRecentNoteCard(Map<String, dynamic> note) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 6.0),
+      margin: const EdgeInsets.symmetric(vertical: 6.0),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -395,19 +398,24 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
             color: Colors.redAccent.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Icon(Icons.picture_as_pdf, color: Colors.redAccent, size: 24),
+          child: const Icon(IconlyBold.document,
+              color: Colors.redAccent, size: 24),
         ),
         title: Text(note['title'] ?? 'Untitled Note',
             style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-        subtitle: Text(note['subjectName'] ?? 'General', style: GoogleFonts.poppins()),
+        subtitle: Text(note['subjectName'] ?? 'General',
+            style: GoogleFonts.poppins()),
         onTap: () {
-          Navigator.push(context, MaterialPageRoute(
-            builder: (context) => PdfViewerScreen(
-              noteId: note['id'],
-              pdfUrl: note['pdfUrl'],
-              title: note['title'],
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PdfViewerScreen(
+                noteId: note['id'],
+                pdfUrl: note['pdfUrl'],
+                title: note['title'],
+              ),
             ),
-          ));
+          );
         },
       ),
     );

@@ -1,14 +1,15 @@
-// lib/screens/edit_profile_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:lottie/lottie.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../services/storage_service.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:iconly/iconly.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -23,7 +24,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _classController = TextEditingController();
   File? _image;
   String? _photoUrl;
-  bool _isLoading = true; // Start with loading true
+  bool _isLoading = true;
 
   final AuthService _authService = AuthService();
   final DatabaseService _databaseService = DatabaseService();
@@ -35,43 +36,33 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _loadUserData();
   }
 
-  // ===== YEH RAHA AAPKA FIX! (UPDATED FUNCTION) =====
   Future<void> _loadUserData() async {
-    // No need to set state here, already true
     try {
       User? user = _authService.currentUser();
       if (user != null) {
-        DocumentSnapshot userDataSnapshot = await _databaseService.getUser(user.uid);
+        DocumentSnapshot userDataSnapshot =
+        await _databaseService.getUser(user.uid);
         if (userDataSnapshot.exists && mounted) {
           final data = userDataSnapshot.data() as Map<String, dynamic>?;
-
-          // Use correct field name 'displayName' and handle null safely
           _nameController.text = data?['displayName'] as String? ?? '';
-
-          // Safely access 'class' field, provide empty string if it doesn't exist
           _classController.text = data?['class'] as String? ?? '';
-
-          // Update the photoUrl state
           setState(() {
             _photoUrl = data?['photoURL'] as String?;
           });
         }
       }
     } catch (e) {
-      print("Error loading user data: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading profile: $e')),
         );
       }
     } finally {
-      // Finally block ensures that the loader is ALWAYS turned off
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
   }
-
 
   @override
   void dispose() {
@@ -81,7 +72,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _pickImage() async {
-    final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
+    final pickedFile =
+    await ImagePicker().pickImage(source: ImageSource.gallery);
     if (pickedFile != null) {
       setState(() {
         _image = File(pickedFile.path);
@@ -98,7 +90,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       try {
         String? newPhotoUrl = _photoUrl;
         if (_image != null) {
-          newPhotoUrl = await _storageService.uploadProfilePicture(user.uid, _image!);
+          newPhotoUrl =
+          await _storageService.uploadProfilePicture(user.uid, _image!);
         }
         await _databaseService.updateUser(
           user.uid,
@@ -109,7 +102,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Profile Updated Successfully! 🎉')),
+            const SnackBar(
+                content: Text('Profile Updated Successfully! 🎉'),
+                backgroundColor: Colors.green),
           );
           Navigator.pop(context);
         }
@@ -119,46 +114,61 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             SnackBar(content: Text('Failed to update profile: $e')),
           );
         }
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
       }
-    }
-    if (mounted) {
-      setState(() => _isLoading = false);
     }
   }
 
-  // Baaki saara code same rahega
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text("Edit Profile", style: GoogleFonts.poppins()),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
+        title: Text("Edit Profile",
+            style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.grey[50],
+        foregroundColor: Colors.black,
+        elevation: 0,
+        centerTitle: true,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              _buildProfileAvatar(),
-              const SizedBox(height: 32),
-              _buildTextField(
-                controller: _nameController,
-                labelText: 'Full Name',
-                prefixIcon: Icons.person_outline,
+          : AnimationLimiter(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              children: AnimationConfiguration.toStaggeredList(
+                duration: const Duration(milliseconds: 375),
+                childAnimationBuilder: (widget) => SlideAnimation(
+                  verticalOffset: 50.0,
+                  child: FadeInAnimation(
+                    child: widget,
+                  ),
+                ),
+                children: [
+                  _buildProfileAvatar(),
+                  const SizedBox(height: 40),
+                  _buildTextField(
+                    controller: _nameController,
+                    labelText: 'Full Name',
+                    prefixIcon: IconlyLight.profile,
+                  ),
+                  const SizedBox(height: 20),
+                  _buildTextField(
+                    controller: _classController,
+                    labelText: 'Class',
+                    prefixIcon: IconlyLight.user,
+                  ),
+                  const SizedBox(height: 40),
+                  _buildSaveButton(),
+                ],
               ),
-              const SizedBox(height: 20),
-              _buildTextField(
-                controller: _classController,
-                labelText: 'Class',
-                prefixIcon: Icons.school_outlined,
-              ),
-              const SizedBox(height: 40),
-              _buildSaveButton(),
-            ],
+            ),
           ),
         ),
       ),
@@ -166,29 +176,46 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Widget _buildProfileAvatar() {
-    ImageProvider backgroundImage;
+    ImageProvider? backgroundImage;
+    Widget? placeholder;
+
     if (_image != null) {
       backgroundImage = FileImage(_image!);
     } else if (_photoUrl != null && _photoUrl!.isNotEmpty) {
       backgroundImage = NetworkImage(_photoUrl!);
     } else {
-      backgroundImage = const AssetImage('assets/Welcome_Image.png');
+      placeholder = Lottie.asset(
+        'assets/animations/profile_avatar.json',
+        height: 120,
+        width: 120,
+        fit: BoxFit.cover,
+      );
     }
 
-    return Column(
+    return Stack(
+      alignment: Alignment.center,
       children: [
         CircleAvatar(
-          radius: 60,
+          radius: 70,
+          backgroundColor: Colors.deepPurple.withOpacity(0.1),
           backgroundImage: backgroundImage,
-          backgroundColor: Colors.grey[200],
+          child: placeholder,
         ),
-        const SizedBox(height: 16),
-        TextButton.icon(
-          onPressed: _pickImage,
-          icon: const Icon(Icons.camera_alt, color: Colors.deepPurple),
-          label: Text(
-            'Change Profile Photo',
-            style: GoogleFonts.poppins(color: Colors.deepPurple),
+        Positioned(
+          bottom: 0,
+          right: 0,
+          child: GestureDetector(
+            onTap: _pickImage,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.deepPurple,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 3),
+              ),
+              child:
+              const Icon(IconlyBold.camera, color: Colors.white, size: 20),
+            ),
           ),
         ),
       ],
@@ -204,9 +231,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       controller: controller,
       decoration: InputDecoration(
         labelText: labelText,
-        prefixIcon: Icon(prefixIcon),
+        labelStyle: GoogleFonts.poppins(),
+        prefixIcon: Icon(prefixIcon, color: Colors.grey[600]),
+        filled: true,
+        fillColor: Colors.white,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Colors.deepPurple, width: 2),
         ),
       ),
       validator: (value) {
@@ -219,7 +258,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Widget _buildSaveButton() {
-    return ElevatedButton(
+    return ElevatedButton.icon(
       onPressed: _isLoading ? null : _saveProfile,
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.deepPurple,
@@ -227,8 +266,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
+        elevation: 5,
+        shadowColor: Colors.deepPurple.withOpacity(0.4),
       ),
-      child: Text(
+      icon: _isLoading
+          ? Container()
+          : const Icon(IconlyBold.tick_square, color: Colors.white),
+      label: _isLoading
+          ? const CircularProgressIndicator(color: Colors.white)
+          : Text(
         "Save Changes",
         style: GoogleFonts.poppins(
             color: Colors.white,

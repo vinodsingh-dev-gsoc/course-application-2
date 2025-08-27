@@ -14,13 +14,11 @@ class AuthService {
     return _auth.currentUser;
   }
 
-  // ✨ --- YEH FUNCTION UPDATE HUA HAI --- ✨
   Future<void> _createUserInFirestore(User user, {String? referredByCode}) async {
     final userDoc = _db.collection('users').doc(user.uid);
     final snapshot = await userDoc.get();
 
     if (!snapshot.exists) {
-      // Har naye user ke liye ek unique, chhota referral code generate hoga
       final String newUserReferralCode = nanoid(8);
 
       await userDoc.set({
@@ -31,11 +29,10 @@ class AuthService {
         'createdAt': FieldValue.serverTimestamp(),
         'role': 'user',
         'freePdfViewCount': 0,
-        // --- NAYE REFERRAL FIELDS ---
-        'referralCode': newUserReferralCode, // User ka apna unique code
-        'referredBy': referredByCode,      // Jisne refer kiya uska code (agar hai toh)
-        'walletBalance': 0.0,              // Shuruaati wallet balance
-        'firstPurchaseMade': false,        // Pehli purchase ka status
+        'referralCode': newUserReferralCode,
+        'referredBy': referredByCode,
+        'walletBalance': 0.0,
+        'firstPurchaseMade': false,
       });
     }
   }
@@ -59,7 +56,8 @@ class AuthService {
     }
   }
 
-  // ✨ --- YEH FUNCTION BHI UPDATE HUA HAI --- ✨
+  // ✨ --- YEH FUNCTION UPDATE HUA HAI --- ✨
+  // Ab yeh function ek special string 'new_user' return karega agar user naya hai
   Future<String?> signInWithGoogle({String? referredByCode}) async {
     try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
@@ -78,15 +76,16 @@ class AuthService {
       final UserCredential userCredential =
       await _auth.signInWithCredential(credential);
 
-      // Yahan check karenge ki naya user hai ya purana
       final isNewUser = userCredential.additionalUserInfo?.isNewUser ?? false;
       if (userCredential.user != null) {
-        // Agar user naya hai, tabhi referral code ke saath document create karenge
+        // We create the user in Firestore regardless, but the logic inside
+        // _createUserInFirestore will prevent overwriting existing users.
+        await _createUserInFirestore(userCredential.user!, referredByCode: referredByCode);
         if (isNewUser) {
-          await _createUserInFirestore(userCredential.user!, referredByCode: referredByCode);
+          return 'new_user'; // <<< YEH HAI IMPORTANT CHANGE
         }
       }
-      return null;
+      return null; // Purane user ke liye null hi return hoga
     } catch (e) {
       print('Google Sign-In Error: $e');
       return 'An error occurred during Google sign-in.';
@@ -133,11 +132,10 @@ class AuthService {
     }
   }
 
-  // ✨ --- YEH FUNCTION BHI UPDATE HUA HAI --- ✨
   Future<String?> registerWithEmailAndPassword({
     required String email,
     required String password,
-    String? referredByCode, // Optional referral code parameter
+    String? referredByCode,
   }) async {
     try {
       UserCredential userCredential =
@@ -147,7 +145,6 @@ class AuthService {
       );
 
       if (userCredential.user != null) {
-        // Yahan pe referredByCode pass kar rahe hain
         await _createUserInFirestore(userCredential.user!, referredByCode: referredByCode);
       }
 

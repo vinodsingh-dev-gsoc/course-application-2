@@ -1,10 +1,12 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lottie/lottie.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // Isko bhi import karlo
 
-class ReferralScreen extends StatelessWidget {
+class ReferralScreen extends StatefulWidget {
   final String referralCode;
   final double walletBalance;
 
@@ -14,10 +16,118 @@ class ReferralScreen extends StatelessWidget {
     required this.walletBalance,
   });
 
+  @override
+  State<ReferralScreen> createState() => _ReferralScreenState();
+}
+
+class _ReferralScreenState extends State<ReferralScreen> {
   void _shareCode(BuildContext context) {
     final String shareText =
-        "Hey! 👋 Join me on PadhaiPedia for the best notes. Use my code '$referralCode' when you sign up! 📚✨";
+        "Hey! 👋 Join me on PadhaiPedia for the best notes. Use my code '${widget.referralCode}' when you sign up! 📚✨";
     Share.share(shareText);
+  }
+
+
+  void _showWithdrawDialog() {
+    final upiController = TextEditingController();
+    final amountController = TextEditingController(); // Amount ke liye naya controller
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text("Withdraw to UPI", style: GoogleFonts.poppins()),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: amountController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: "Amount to withdraw",
+                    hintText: "e.g., 150",
+                    prefixText: "₹",
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return "Amount cannot be empty";
+                    }
+                    final double? amount = double.tryParse(value);
+                    if (amount == null) {
+                      return "Please enter a valid amount";
+                    }
+                    if (amount > widget.walletBalance) {
+                      return "Amount cannot be more than your wallet balance";
+                    }
+                    if (amount < 100) {
+                      return "Minimum withdrawal amount is ₹100";
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: upiController,
+                  decoration: const InputDecoration(
+                    labelText: "Enter your UPI ID",
+                    hintText: "yourname@upi",
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return "UPI ID cannot be empty";
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  final user = FirebaseAuth.instance.currentUser;
+                  if (user != null) {
+                    final double withdrawalAmount = double.parse(amountController.text.trim());
+
+                    await FirebaseFirestore.instance.collection('withdrawal_requests').add({
+                      'userId': user.uid,
+                      'userName': user.displayName,
+                      'upiId': upiController.text.trim(),
+                      'requestedAmount': withdrawalAmount,
+                      'walletBalanceOnRequest': widget.walletBalance, // User ka current balance for validation
+                      'requestedAt': FieldValue.serverTimestamp(),
+                      'status': 'pending', // Initial status
+                    });
+
+                    // User ka wallet balance deduct karo
+                    await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+                      'walletBalance': FieldValue.increment(-withdrawalAmount),
+                    });
+                  }
+
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Withdrawal request has been sent! 💸"),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              },
+              child: const Text("Confirm"),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -25,7 +135,8 @@ class ReferralScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text("Refer & Earn", style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+        title: Text("Refer & Earn",
+            style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 1,
@@ -37,7 +148,8 @@ class ReferralScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Lottie.asset('assets/animations/gift_animation.json', height: 180), // Ek engaging animation
+              Lottie.asset('assets/animations/gift_animation.json',
+                  height: 180),
               const SizedBox(height: 20),
               _buildWalletBalanceCard(context),
               const SizedBox(height: 30),
@@ -54,8 +166,10 @@ class ReferralScreen extends StatelessWidget {
   }
 
   Widget _buildWalletBalanceCard(BuildContext context) {
+    bool canWithdraw = widget.walletBalance >= 100;
+
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [Colors.deepPurple, Colors.purple.shade300],
@@ -82,13 +196,37 @@ class ReferralScreen extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            "₹${walletBalance.toStringAsFixed(2)}",
+            "₹${widget.walletBalance.toStringAsFixed(2)}",
             style: GoogleFonts.poppins(
               fontSize: 40,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
           ),
+          const SizedBox(height: 20),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.account_balance_wallet, color: Colors.deepPurple),
+            label: Text(
+              "Withdraw Money",
+              style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.deepPurple),
+            ),
+            onPressed: canWithdraw ? _showWithdrawDialog : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+          if (!canWithdraw)
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Text(
+                "Minimum ₹100 required to withdraw",
+                style: GoogleFonts.poppins(fontSize: 12, color: Colors.white70),
+              ),
+            ),
         ],
       ),
     );
@@ -105,7 +243,7 @@ class ReferralScreen extends StatelessWidget {
         const SizedBox(height: 15),
         GestureDetector(
           onTap: () {
-            Clipboard.setData(ClipboardData(text: referralCode));
+            Clipboard.setData(ClipboardData(text: widget.referralCode));
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text("Referral code copied to clipboard!"),
@@ -124,7 +262,7 @@ class ReferralScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  referralCode,
+                  widget.referralCode,
                   style: GoogleFonts.poppins(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -176,7 +314,8 @@ class ReferralScreen extends StatelessWidget {
         const SizedBox(height: 15),
         _buildStep("1.", "Invite your friends with your unique code."),
         _buildStep("2.", "Your friend signs up using your code."),
-        _buildStep("3.", "When they make their first purchase, you get 10% of the amount in your wallet! 💰"),
+        _buildStep(
+            "3.", "When they make their first purchase, you get 10% of the amount in your wallet! 💰"),
       ],
     );
   }

@@ -18,7 +18,6 @@ class SelectionScreen extends StatefulWidget {
 class _SelectionScreenState extends State<SelectionScreen> {
   int _currentStep = 0;
 
-  // Models and selected items
   List<ClassModel> _classes = [];
   List<PatternModel> _patterns = [];
   List<SubjectModel> _subjects = [];
@@ -30,21 +29,19 @@ class _SelectionScreenState extends State<SelectionScreen> {
   ChapterModel? _selectedChapter;
   List<QueryDocumentSnapshot> _fetchedNotes = [];
 
-  // Loading states
   bool _isLoadingClasses = true;
   bool _isLoadingPatterns = false;
   bool _isLoadingSubjects = false;
   bool _isLoadingChapters = false;
   bool _isProcessing = false;
 
-  // Payment and Access states
   bool _hasPurchasedChapter = false;
   double _notesTotalAmount = 0.0;
   int _freePdfViewCount = 0;
 
   final DatabaseService _databaseService = DatabaseService();
   late Razorpay _razorpay;
-  final String _razorpayKeyId = "rzp_test_R9eAZNO40fYk2m"; // Aapki Key
+  final String _razorpayKeyId = "rzp_test_R9eAZNO40fYk2m";
 
   @override
   void initState() {
@@ -67,7 +64,6 @@ class _SelectionScreenState extends State<SelectionScreen> {
     super.dispose();
   }
 
-  // --- Data Fetching Logic ---
   Future<void> _fetchClasses() async {
     setState(() => _isLoadingClasses = true);
     final snapshot = await FirebaseFirestore.instance.collection('classes').get();
@@ -162,7 +158,6 @@ class _SelectionScreenState extends State<SelectionScreen> {
     });
   }
 
-  // --- Payment Logic ---
   void _startPayment() {
     final user = FirebaseAuth.instance.currentUser;
     var options = {
@@ -180,21 +175,16 @@ class _SelectionScreenState extends State<SelectionScreen> {
     }
   }
 
-  // ✨ --- YAHAN PAR CHANGE HUA HAI --- ✨
   void _handlePaymentSuccess(PaymentSuccessResponse response) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    // --- YEH NAYI LINE ADD KI GAYI HAI ---
-    // Reward process shuru karo!
     await _databaseService.processReferralOnPurchase(
       purchaserUid: user.uid,
       purchaseAmount: _notesTotalAmount,
     );
-    // --- YAHAN TAK ---
 
-    // Baaki ka logic same rahega
-    await _databaseService.grantChapterAccess(user.uid, _selectedChapter!.id);
+    await _databaseService.grantClassAccess(user.uid, _selectedClass!.id);
 
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
       content: Text("Payment successful! Chapter Unlocked."),
@@ -210,9 +200,16 @@ class _SelectionScreenState extends State<SelectionScreen> {
     setState(() => _isProcessing = false);
   }
 
-  void _handleExternalWallet(ExternalWalletResponse response) { /* Handle external wallet */ }
+  void _handleExternalWallet(ExternalWalletResponse response) { }
 
-  // --- UI Logic & Navigation ---
+  void _handleContinue() {
+    if (_isStepComplete(_currentStep)) {
+      if (_currentStep < 4) {
+        setState(() => _currentStep++);
+      }
+    }
+  }
+
   void _handleGetNotes() async {
     if(_selectedChapter == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please select a chapter first.")));
@@ -249,7 +246,7 @@ class _SelectionScreenState extends State<SelectionScreen> {
       );
     }
     if (mounted) {
-      Navigator.push(context, MaterialPageRoute(builder: (context) => NotesDisplayScreen(notes: _fetchedNotes)));
+      Navigator.push(context, MaterialPageRoute(builder: (context) => NotesDisplayScreen(notes: _fetchedNotes, subjectName: _selectedSubject!.name)));
     }
     setState(() => _isProcessing = false);
   }
@@ -270,144 +267,6 @@ class _SelectionScreenState extends State<SelectionScreen> {
     _hasPurchasedChapter = false;
   }
 
-  // --- Widgets ---
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('📚 Select Your Notes', style: GoogleFonts.poppins()),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
-        centerTitle: true,
-      ),
-      body: Theme(
-        data: ThemeData(colorScheme: ColorScheme.light(primary: Colors.deepPurple)),
-        child: Stepper(
-          type: StepperType.vertical,
-          currentStep: _currentStep,
-          onStepContinue: () {
-            final isLastStep = _currentStep == 3;
-            if (isLastStep) {
-              _handleGetNotes();
-            } else if (_isStepComplete(_currentStep)) {
-              setState(() => _currentStep += 1);
-            }
-          },
-          onStepCancel: () {
-            if (_currentStep > 0) {
-              setState(() => _currentStep -= 1);
-            }
-          },
-          controlsBuilder: (context, details) {
-            final isLastStep = _currentStep == 3;
-            return Padding(
-              padding: const EdgeInsets.only(top: 16.0),
-              child: _isProcessing && isLastStep
-                  ? Center(child: CircularProgressIndicator())
-                  : Row(
-                children: [
-                  if(isLastStep)
-                    _buildFinalButton()
-                  else
-                    ElevatedButton(
-                      onPressed: details.onStepContinue,
-                      child: const Text('Continue'),
-                    ),
-                  const SizedBox(width: 8),
-                  if (_currentStep > 0)
-                    TextButton(
-                      onPressed: details.onStepCancel,
-                      child: const Text('Back'),
-                    ),
-                ],
-              ),
-            );
-          },
-          steps: [
-            _buildStep(
-              title: 'Class',
-              step: 0,
-              content: _buildDropdown<ClassModel>(
-                label: 'Select Class',
-                value: _selectedClass,
-                items: _classes,
-                onChanged: (value) {
-                  setState(() => _selectedClass = value);
-                  if (value != null) _fetchPatterns(value.id);
-                },
-                isLoading: _isLoadingClasses,
-                itemAsString: (c) => c.name,
-              ),
-            ),
-            _buildStep(
-              title: 'Pattern',
-              step: 1,
-              content: _buildDropdown<PatternModel>(
-                label: 'Select Pattern',
-                value: _selectedPattern,
-                items: _patterns,
-                onChanged: (value) {
-                  setState(() => _selectedPattern = value);
-                  if (_selectedClass != null && value != null) _fetchSubjects(_selectedClass!.id, value.id);
-                },
-                isLoading: _isLoadingPatterns,
-                itemAsString: (p) => p.name,
-                isEnabled: _selectedClass != null,
-              ),
-            ),
-            _buildStep(
-              title: 'Subject',
-              step: 2,
-              content: _buildDropdown<SubjectModel>(
-                label: 'Select Subject',
-                value: _selectedSubject,
-                items: _subjects,
-                onChanged: (value) {
-                  setState(() => _selectedSubject = value);
-                  if (_selectedClass != null && _selectedPattern != null && value != null) _fetchChapters(_selectedClass!.id, _selectedPattern!.id, value.id);
-                },
-                isLoading: _isLoadingSubjects,
-                itemAsString: (s) => s.name,
-                isEnabled: _selectedPattern != null,
-              ),
-            ),
-            _buildStep(
-              title: 'Chapter',
-              step: 3,
-              content: Column(
-                children: [
-                  _buildDropdown<ChapterModel>(
-                    label: 'Select Chapter',
-                    value: _selectedChapter,
-                    items: _chapters,
-                    onChanged: _onChapterSelected,
-                    isLoading: _isLoadingChapters,
-                    itemAsString: (c) => c.name,
-                    isEnabled: _selectedSubject != null,
-                  ),
-                  if (_selectedChapter != null && !_isLoadingChapters && _chapters.isNotEmpty && _fetchedNotes.isEmpty && !_isProcessing && _notesTotalAmount == 0)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 20.0),
-                      child: Lottie.asset('assets/animations/empty_box.json', height: 150),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Step _buildStep({required String title, required int step, required Widget content}) {
-    return Step(
-      title: Text(title),
-      content: content,
-      isActive: _currentStep >= step,
-      state: _isStepComplete(step) ? StepState.complete : StepState.indexed,
-    );
-  }
-
   bool _isStepComplete(int step){
     switch(step){
       case 0: return _selectedClass != null;
@@ -418,33 +277,269 @@ class _SelectionScreenState extends State<SelectionScreen> {
     }
   }
 
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F4F8),
+      appBar: AppBar(
+        title: Text('Add New Note', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: Colors.black,
+        leading: const BackButton(),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+              child: Column(
+                children: [
+                  _buildStepItem(
+                      index: 0,
+                      icon: Icons.people_alt_outlined,
+                      title: 'Class',
+                      content: _buildDropdown<ClassModel>(
+                        label: 'Class',
+                        value: _selectedClass,
+                        items: _classes,
+                        onChanged: (value) {
+                          setState(() => _selectedClass = value);
+                          if (value != null) _fetchPatterns(value.id);
+                        },
+                        isLoading: _isLoadingClasses,
+                        itemAsString: (c) => c.name,
+                      ),
+                      isLast: false),
+                  _buildStepItem(
+                      index: 1,
+                      icon: Icons.grid_view_outlined,
+                      title: 'Pattern',
+                      content: _buildDropdown<PatternModel>(
+                        label: 'Pattern',
+                        value: _selectedPattern,
+                        items: _patterns,
+                        onChanged: (value) {
+                          setState(() => _selectedPattern = value);
+                          if (_selectedClass != null && value != null) _fetchSubjects(_selectedClass!.id, value.id);
+                        },
+                        isLoading: _isLoadingPatterns,
+                        itemAsString: (p) => p.name,
+                        isEnabled: _selectedClass != null,
+                      ),
+                      isLast: false),
+                  _buildStepItem(
+                      index: 2,
+                      icon: Icons.menu_book_outlined,
+                      title: 'Subject',
+                      content: _buildDropdown<SubjectModel>(
+                        label: 'Subject',
+                        value: _selectedSubject,
+                        items: _subjects,
+                        onChanged: (value) {
+                          setState(() => _selectedSubject = value);
+                          if (_selectedClass != null && _selectedPattern != null && value != null) _fetchChapters(_selectedClass!.id, _selectedPattern!.id, value.id);
+                        },
+                        isLoading: _isLoadingSubjects,
+                        itemAsString: (s) => s.name,
+                        isEnabled: _selectedPattern != null,
+                      ),
+                      isLast: false),
+                  _buildStepItem(
+                      index: 3,
+                      icon: Icons.article_outlined,
+                      title: 'Chapter',
+                      content: _buildDropdown<ChapterModel>(
+                        label: 'Chapter',
+                        value: _selectedChapter,
+                        items: _chapters,
+                        onChanged: _onChapterSelected,
+                        isLoading: _isLoadingChapters,
+                        itemAsString: (c) => c.name,
+                        isEnabled: _selectedSubject != null,
+                      ),
+                      isLast: false),
+                  _buildStepItem(
+                      index: 4,
+                      icon: Icons.get_app_outlined,
+                      title: 'Get Notes',
+                      content: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (_isProcessing)
+                            const Center(child: Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: CircularProgressIndicator(),
+                            ))
+                          else
+                            _buildFinalButton(),
+                          if (_selectedChapter != null && !_isLoadingChapters && _chapters.isNotEmpty && _fetchedNotes.isEmpty && !_isProcessing && _notesTotalAmount == 0 && !_hasPurchasedChapter)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 20.0),
+                              child: Lottie.asset('assets/animations/empty_box.json', height: 120),
+                            ),
+                        ],
+                      ),
+                      isLast: true),
+                ],
+              ),
+            ),
+          ),
+          _buildBottomContinueButton(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepItem({
+    required int index,
+    required IconData icon,
+    required String title,
+    required Widget content,
+    required bool isLast,
+  }) {
+    bool isActive = _currentStep == index;
+    bool isCompleted = _currentStep > index;
+
+    return GestureDetector(
+      onTap: isCompleted ? () => setState(() => _currentStep = index) : null,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildStepIndicator(
+              index: index, isActive: isActive, isCompleted: isCompleted, isLast: isLast),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      icon,
+                      color: isActive || isCompleted
+                          ? const Color(0xFF6A1B9A)
+                          : Colors.grey.shade600,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      title,
+                      style: GoogleFonts.poppins(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: isActive || isCompleted
+                            ? Colors.black
+                            : Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+                if (isActive) ...[
+                  const SizedBox(height: 12),
+                  content,
+                ] else
+                  const SizedBox(height: 48),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepIndicator({
+    required int index,
+    required bool isActive,
+    required bool isCompleted,
+    required bool isLast,
+  }) {
+    Color circleColor = isActive || isCompleted ? const Color(0xFF6A1B9A) : Colors.grey.shade300;
+    Color lineColor = isCompleted ? const Color(0xFF6A1B9A) : Colors.grey.shade300;
+
+    return Column(
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: circleColor,
+          ),
+          child: Center(
+            child: Text(
+              '${index + 1}',
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+        if (!isLast)
+          Container(
+            width: 2,
+            height: isActive ? 120 : 60,
+            color: lineColor,
+          ),
+      ],
+    );
+  }
+
   Widget _buildDropdown<T>({
-    required String label, required T? value, required List<T> items,
-    required void Function(T?) onChanged, required String Function(T) itemAsString,
-    bool isLoading = false, bool isEnabled = true,
+    required String label,
+    required T? value,
+    required List<T> items,
+    required void Function(T?) onChanged,
+    required String Function(T) itemAsString,
+    bool isLoading = false,
+    bool isEnabled = true,
   }) {
     return DropdownButtonFormField<T>(
       decoration: InputDecoration(
         labelText: label,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
-        filled: !isEnabled,
-        fillColor: Colors.grey[200],
-        prefixIcon: isLoading ? Transform.scale(scale: 0.5, child: const CircularProgressIndicator()) : null,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0), borderSide: const BorderSide(color: Colors.deepPurple)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0), borderSide: BorderSide(color: Colors.grey.shade400)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0), borderSide: const BorderSide(color: Color(0xFF6A1B9A), width: 2)),
+        filled: true,
+        fillColor: Colors.white,
+        prefixIcon: isLoading
+            ? const Padding(
+          padding: EdgeInsets.all(10.0),
+          child: SizedBox(
+            width: 10,
+            height: 10,
+            child: CircularProgressIndicator(strokeWidth: 2.0),
+          ),
+        )
+            : null,
       ),
-      value: value, isExpanded: true,
-      items: items.map((T item) => DropdownMenuItem<T>(value: item, child: Text(itemAsString(item)))).toList(),
+      value: value,
+      isExpanded: true,
+      items: items
+          .map((T item) => DropdownMenuItem<T>(
+          value: item,
+          child: Text(
+            itemAsString(item),
+            style: GoogleFonts.poppins(),
+            overflow: TextOverflow.ellipsis,
+          )))
+          .toList(),
       onChanged: isEnabled ? onChanged : null,
     );
   }
 
-  Widget _buildFinalButton(){
+  Widget _buildFinalButton() {
+    if (_selectedChapter == null && _currentStep == 4) {
+      return const SizedBox.shrink();
+    }
     if (_selectedChapter == null) {
-      return ElevatedButton(onPressed: null, child: Text('Select Chapter'));
+      return const SizedBox.shrink();
     }
 
     String text;
     Color color;
     IconData icon;
+    VoidCallback? onPressed = _handleGetNotes;
 
     if (_hasPurchasedChapter) {
       text = 'View Notes';
@@ -461,13 +556,41 @@ class _SelectionScreenState extends State<SelectionScreen> {
     }
 
     return ElevatedButton.icon(
-      icon: Icon(icon),
+      icon: Icon(icon, color: Colors.white),
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
-        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
       ),
-      onPressed: _handleGetNotes,
-      label: Text(text),
+      onPressed: onPressed,
+      label: Text(text, style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)),
+    );
+  }
+
+  Widget _buildBottomContinueButton() {
+    if(_currentStep >= 4) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: _isStepComplete(_currentStep) ? _handleContinue : null,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF6A1B9A),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+          ),
+          child: Text(
+            'CONTINUE',
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
